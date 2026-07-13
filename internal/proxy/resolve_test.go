@@ -165,6 +165,29 @@ func TestSortedKeysStable(t *testing.T) {
 	}
 }
 
+func TestEnvForJSONDropsUppercaseDuplicates(t *testing.T) {
+	in := map[string]string{
+		"http_proxy":         "http://x:1",
+		"HTTP_PROXY":         "http://x:1",
+		"all_proxy":          "socks5://x:1",
+		"ALL_PROXY":          "socks5://x:1",
+		"NODE_USE_ENV_PROXY": "1",
+	}
+	out := proxy.EnvForJSON(in)
+	if _, ok := out["HTTP_PROXY"]; ok {
+		t.Fatalf("uppercase duplicate should be omitted: %+v", out)
+	}
+	if _, ok := out["ALL_PROXY"]; ok {
+		t.Fatalf("uppercase duplicate should be omitted: %+v", out)
+	}
+	if out["http_proxy"] != "http://x:1" || out["all_proxy"] != "socks5://x:1" {
+		t.Fatalf("%+v", out)
+	}
+	if out["NODE_USE_ENV_PROXY"] != "1" {
+		t.Fatalf("node key should remain: %+v", out)
+	}
+}
+
 func TestNodeExtraCA(t *testing.T) {
 	cfg := config.Default()
 	cfg.Extras.NodeExtraCACerts = "/ca.pem"
