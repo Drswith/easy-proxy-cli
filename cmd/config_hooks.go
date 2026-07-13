@@ -282,8 +282,8 @@ func newSchemaCmd() *cobra.Command {
 		Short: "Print machine-readable command/config schema (for AI agents)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			schema := map[string]any{
-				"name":    "ezp",
-				"version": version,
+				"name":        "ezp",
+				"version":     version,
 				"config_path": "~/.easy-proxy/config.toml",
 				"exit_codes": map[string]int{
 					"ok":          output.ExitOK,
@@ -292,8 +292,8 @@ func newSchemaCmd() *cobra.Command {
 					"unavailable": output.ExitUnavailable,
 				},
 				"conventions": map[string]string{
-					"stdout": "shell scripts, JSON payloads, command results",
-					"stderr": "human hints (suppressed by --json / --quiet)",
+					"stdout":      "shell scripts, JSON payloads, command results",
+					"stderr":      "human hints (suppressed by --json / --quiet)",
 					"shell_apply": "eval \"$(ezp on --emit)\" or eval \"$(ezp hook <shell>)\"",
 				},
 				"commands": []map[string]any{
@@ -305,10 +305,12 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "doctor", "desc": "reachability", "agent": "ezp doctor --json"},
 					{"name": "config", "desc": "read/write config", "agent": "ezp config show --json"},
 					{"name": "profiles", "desc": "list profiles", "agent": "ezp profiles --json"},
+					{"name": "setup", "desc": "install config + shell hooks", "agent": "ezp setup --json"},
 					{"name": "hook", "desc": "shell integration", "agent": "ezp hook zsh"},
 					{"name": "schema", "desc": "this schema", "agent": "ezp schema"},
 				},
 				"config": config.Default(),
+				"shells": []string{"bash", "zsh", "sh", "fish", "powershell", "nu"},
 			}
 			return out().JSON(schema)
 		},

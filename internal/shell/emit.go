@@ -17,20 +17,16 @@ const (
 	PowerShell Kind = "powershell"
 	Cmd        Kind = "cmd"
 	Posix      Kind = "sh"
+	Nu         Kind = "nu"
 )
 
 func Detect(name string) (Kind, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", "bash", "zsh", "sh", "posix":
-		if name == "" || name == "posix" {
-			return Posix, nil
-		}
-		if name == "bash" {
-			return Bash, nil
-		}
-		if name == "zsh" {
-			return Zsh, nil
-		}
+	case "bash":
+		return Bash, nil
+	case "zsh":
+		return Zsh, nil
+	case "", "sh", "posix":
 		return Posix, nil
 	case "fish":
 		return Fish, nil
@@ -38,8 +34,10 @@ func Detect(name string) (Kind, error) {
 		return PowerShell, nil
 	case "cmd", "bat":
 		return Cmd, nil
+	case "nu", "nushell":
+		return Nu, nil
 	default:
-		return "", fmt.Errorf("unsupported shell %q (bash|zsh|sh|fish|powershell|cmd)", name)
+		return "", fmt.Errorf("unsupported shell %q (bash|zsh|sh|fish|powershell|cmd|nu)", name)
 	}
 }
 
@@ -127,6 +125,42 @@ function ezp {
   & $bin @Args
 }
 `, psQuote(binPath)), nil
+	case Nu:
+		// Nushell: parse POSIX export/unset lines from `ezp on|off --emit`.
+		return fmt.Sprintf(`# easy-proxy-cli shell hook (nushell)
+def --env --wrapped ezp [...args: string] {
+  let bin = %s
+  let cmd = ($args | get 0? | default "")
+  if $cmd == "on" or $cmd == "off" {
+    let rest = ($args | skip 1)
+    let script = (^$bin $cmd --emit --shell sh ...$rest)
+    mut map = {}
+    for line in ($script | lines) {
+      let t = ($line | str trim)
+      if ($t | str starts-with "export ") {
+        let body = ($t | str replace "export " "")
+        let eq = ($body | str index-of "=")
+        if $eq != null {
+          let key = ($body | str substring 0..<$eq)
+          mut val = ($body | str substring ($eq + 1)..)
+          if ($val | str starts-with "'") and ($val | str ends-with "'") {
+            $val = ($val | str substring 1..<($val | str length | $in - 1))
+          }
+          $map = ($map | upsert $key $val)
+        }
+      } else if ($t | str starts-with "unset ") {
+        let key = ($t | str replace "unset " "" | str trim)
+        hide-env -i $key
+      }
+    }
+    if not ($map | is-empty) {
+      load-env $map
+    }
+    return
+  }
+  ^$bin ...$args
+}
+`, nuQuote(binPath)), nil
 	default:
 		return "", fmt.Errorf("hook not supported for shell %q", kind)
 	}
@@ -145,4 +179,8 @@ func fishQuote(s string) string {
 
 func psQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+func nuQuote(s string) string {
+	return "`" + strings.ReplaceAll(s, "`", "``") + "`"
 }

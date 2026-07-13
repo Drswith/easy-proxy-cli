@@ -17,19 +17,19 @@ type EnvMap map[string]string
 
 // ResolveOptions controls how a profile becomes env vars.
 type ResolveOptions struct {
-	Profile           string
-	HTTP              string
-	HTTPS             string
-	Socks             string
-	NoProxy           string
-	Host              string
-	Port              int
-	Mode              string // mixed | http | socks
-	MirrorUppercase   *bool
-	NodeUseEnvProxy   *bool
-	NodeExtraCACerts  string
-	DisableNode       bool
-	DisableUppercase  bool
+	Profile          string
+	HTTP             string
+	HTTPS            string
+	Socks            string
+	NoProxy          string
+	Host             string
+	Port             int
+	Mode             string // mixed | http | socks
+	MirrorUppercase  *bool
+	NodeUseEnvProxy  *bool
+	NodeExtraCACerts string
+	DisableNode      bool
+	DisableUppercase bool
 }
 
 // Resolved is the fully resolved proxy environment to apply.

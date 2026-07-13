@@ -165,9 +165,9 @@ func newStatusCmd() *cobra.Command {
 			w := out()
 			if flagJSON {
 				return w.JSON(map[string]any{
-					"active":  len(cur) > 0,
-					"env":     cur,
-					"count":   len(cur),
+					"active": len(cur) > 0,
+					"env":    cur,
+					"count":  len(cur),
 				})
 			}
 			if len(cur) == 0 {
