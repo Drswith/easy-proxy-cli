@@ -23,6 +23,7 @@ type ResolveOptions struct {
 	HTTPS            string
 	Socks            string
 	NoProxy          string
+	NoProxySet       bool // true when CLI explicitly set --no-proxy (including empty)
 	Host             string
 	Port             int
 	Mode             string // mixed | http | socks
@@ -51,7 +52,12 @@ func Resolve(cfg config.Config, opt ResolveOptions) (Resolved, error) {
 	httpURL := firstNonEmpty(opt.HTTP, p.HTTP)
 	httpsURL := firstNonEmpty(opt.HTTPS, p.HTTPS, httpURL)
 	socksURL := firstNonEmpty(opt.Socks, p.Socks)
-	noProxy := firstNonEmpty(opt.NoProxy, p.NoProxy)
+	var noProxy string
+	if opt.NoProxySet {
+		noProxy = opt.NoProxy
+	} else {
+		noProxy = p.NoProxy
+	}
 
 	if opt.Host != "" || opt.Port != 0 {
 		host := firstNonEmpty(opt.Host, "127.0.0.1")
@@ -96,9 +102,8 @@ func Resolve(cfg config.Config, opt ResolveOptions) (Resolved, error) {
 		env["https_proxy"] = httpsURL
 		env["all_proxy"] = socksURL
 	}
-	if noProxy != "" {
-		env["no_proxy"] = noProxy
-	}
+	// Always emit no_proxy (may be empty) so explicit clears override parent env.
+	env["no_proxy"] = noProxy
 
 	mirror := cfg.Extras.MirrorUppercase
 	if opt.MirrorUppercase != nil {
@@ -208,18 +213,43 @@ func validateURL(raw, kind string) error {
 	if u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("invalid %s proxy URL %q: need scheme://host:port", kind, raw)
 	}
+	scheme := strings.ToLower(u.Scheme)
+	switch kind {
+	case "socks":
+		switch scheme {
+		case "socks", "socks5", "socks5h":
+		default:
+			return fmt.Errorf("invalid %s proxy URL %q: scheme must be socks5/socks5h", kind, raw)
+		}
+	default: // http / https proxy endpoints
+		switch scheme {
+		case "http", "https", "socks5", "socks5h":
+		default:
+			return fmt.Errorf("invalid %s proxy URL %q: scheme must be http/https/socks5/socks5h", kind, raw)
+		}
+	}
 	return nil
 }
 
-// ApplyToEnviron returns a copy of environ with Resolved env merged in.
+// ApplyToEnviron returns a copy of environ with managed proxy keys stripped,
+// then Resolved env merged in. Stripping first ensures --no-uppercase / --no-node
+// do not leave stale HTTP_PROXY / NODE_* from the parent process.
 func ApplyToEnviron(base []string, env map[string]string) []string {
+	drop := map[string]struct{}{}
+	for _, k := range OffKeys(true, true) {
+		drop[k] = struct{}{}
+	}
+	out := make([]string, 0, len(base)+len(env))
 	index := map[string]int{}
-	out := make([]string, len(base))
-	copy(out, base)
-	for i, kv := range out {
-		if eq := strings.IndexByte(kv, '='); eq > 0 {
-			index[kv[:eq]] = i
+	for _, kv := range base {
+		eq := strings.IndexByte(kv, '=')
+		if eq > 0 {
+			if _, skip := drop[kv[:eq]]; skip {
+				continue
+			}
+			index[kv[:eq]] = len(out)
 		}
+		out = append(out, kv)
 	}
 	for _, k := range SortedKeys(env) {
 		entry := k + "=" + env[k]

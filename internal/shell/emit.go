@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/proxy"
 )
 
@@ -37,7 +38,7 @@ func Detect(name string) (Kind, error) {
 	case "nu", "nushell":
 		return Nu, nil
 	default:
-		return "", fmt.Errorf("unsupported shell %q (bash|zsh|sh|fish|powershell|cmd|nu)", name)
+		return "", apperr.Misconfigf("unsupported shell %q (bash|zsh|sh|fish|powershell|cmd|nu)", name)
 	}
 }
 
@@ -52,7 +53,7 @@ func EmitExport(kind Kind, env map[string]string) string {
 		case PowerShell:
 			fmt.Fprintf(&b, "$env:%s = %s\n", k, psQuote(v))
 		case Cmd:
-			fmt.Fprintf(&b, "set %s=%s\n", k, v)
+			fmt.Fprintf(&b, "set \"%s=%s\"\n", k, cmdEscape(v))
 		default:
 			fmt.Fprintf(&b, "export %s=%s\n", k, shQuote(v))
 		}
@@ -192,6 +193,13 @@ func fishQuote(s string) string {
 
 func psQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+func cmdEscape(s string) string {
+	// Inside set "KEY=value": escape % (env expansion) and " (string terminator).
+	s = strings.ReplaceAll(s, `%`, `%%`)
+	s = strings.ReplaceAll(s, `"`, `""`)
+	return s
 }
 
 func nuQuote(s string) string {

@@ -85,6 +85,7 @@ func TestResolveCLIOverridesProfile(t *testing.T) {
 		HTTPS:            "http://override:1",
 		Socks:            "socks5://override:2",
 		NoProxy:          "only.local",
+		NoProxySet:       true,
 		DisableNode:      true,
 		DisableUppercase: true,
 	})
@@ -115,8 +116,8 @@ func TestApplyToEnvironAndCurrent(t *testing.T) {
 	if cur["http_proxy"] != "http://set:1" {
 		t.Fatalf("%+v", cur)
 	}
-	base := []string{"PATH=/bin", "http_proxy=old"}
-	out := proxy.ApplyToEnviron(base, map[string]string{"http_proxy": "new", "FOO": "bar"})
+	base := []string{"PATH=/bin", "http_proxy=old", "HTTP_PROXY=OLD", "NODE_USE_ENV_PROXY=1", "FOO=bar"}
+	out := proxy.ApplyToEnviron(base, map[string]string{"http_proxy": "new"})
 	found := map[string]string{}
 	for _, kv := range out {
 		parts := strings.SplitN(kv, "=", 2)
@@ -125,7 +126,36 @@ func TestApplyToEnvironAndCurrent(t *testing.T) {
 	if found["http_proxy"] != "new" || found["FOO"] != "bar" || found["PATH"] != "/bin" {
 		t.Fatalf("%+v", found)
 	}
+	if _, ok := found["HTTP_PROXY"]; ok {
+		t.Fatalf("stale HTTP_PROXY should be stripped: %+v", found)
+	}
+	if _, ok := found["NODE_USE_ENV_PROXY"]; ok {
+		t.Fatalf("stale NODE_USE_ENV_PROXY should be stripped: %+v", found)
+	}
 	_ = os.Unsetenv
+}
+
+func TestResolveEmptyNoProxyOverride(t *testing.T) {
+	cfg := config.Default()
+	r, err := proxy.Resolve(cfg, proxy.ResolveOptions{
+		NoProxySet:       true,
+		NoProxy:          "",
+		DisableNode:      true,
+		DisableUppercase: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := r.Env["no_proxy"]; !ok || v != "" {
+		t.Fatalf("expected explicit empty no_proxy, got %q ok=%v", v, ok)
+	}
+}
+
+func TestResolveRejectsBadScheme(t *testing.T) {
+	cfg := config.Default()
+	if _, err := proxy.Resolve(cfg, proxy.ResolveOptions{HTTP: "ftp://proxy:21", Mode: "http"}); err == nil {
+		t.Fatal("expected scheme error")
+	}
 }
 
 func TestSortedKeysStable(t *testing.T) {

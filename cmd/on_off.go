@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/config"
 	"github.com/drswith/easy-proxy-cli/internal/proxy"
 	"github.com/drswith/easy-proxy-cli/internal/shell"
@@ -22,6 +23,7 @@ func resolveFlags(cmd *cobra.Command) (proxy.ResolveOptions, error) {
 	opt.HTTPS, _ = cmd.Flags().GetString("https")
 	opt.Socks, _ = cmd.Flags().GetString("socks")
 	opt.NoProxy, _ = cmd.Flags().GetString("no-proxy")
+	opt.NoProxySet = cmd.Flags().Changed("no-proxy")
 	opt.Host, _ = cmd.Flags().GetString("host")
 	opt.Port, _ = cmd.Flags().GetInt("port")
 	opt.Mode, _ = cmd.Flags().GetString("mode")
@@ -217,7 +219,7 @@ func newEnvCmd() *cobra.Command {
 				}
 				w.Script(shell.EmitExport(kind, resolved.Env))
 			default:
-				return fmt.Errorf("unknown format %q (export|json|dotenv)", format)
+				return apperr.Misconfigf("unknown format %q (export|json|dotenv)", format)
 			}
 			return nil
 		},

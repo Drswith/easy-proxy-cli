@@ -49,8 +49,12 @@ func TestEmitExportAndUnset(t *testing.T) {
 		t.Fatalf("ps: %s", ps)
 	}
 	cmd := shell.EmitExport(shell.Cmd, env)
-	if !strings.Contains(cmd, "set http_proxy=") {
+	if !strings.Contains(cmd, `set "http_proxy=`) {
 		t.Fatalf("cmd: %s", cmd)
+	}
+	amp := shell.EmitExport(shell.Cmd, map[string]string{"http_proxy": "http://x?a=1&b=2"})
+	if !strings.Contains(amp, `set "http_proxy=http://x?a=1&b=2"`) {
+		t.Fatalf("cmd amp: %s", amp)
 	}
 
 	keys := []string{"http_proxy", "HTTPS_PROXY"}

@@ -11,6 +11,23 @@ import (
 	"github.com/drswith/easy-proxy-cli/internal/doctor"
 )
 
+func TestTCPCheckDefaultPort(t *testing.T) {
+	// Portless URL should dial :80, not fail with "missing port in address".
+	fail := doctor.Run("http://127.0.0.1", "", "", 200*time.Millisecond)
+	if fail.OK {
+		t.Fatalf("expected fail: %+v", fail)
+	}
+	if len(fail.Checks) == 0 {
+		t.Fatal("expected checks")
+	}
+	if strings.Contains(fail.Checks[0].Error, "missing port") {
+		t.Fatalf("should default port, got %q", fail.Checks[0].Error)
+	}
+	if fail.Checks[0].Target != "127.0.0.1:80" {
+		t.Fatalf("target=%q want 127.0.0.1:80", fail.Checks[0].Target)
+	}
+}
+
 func TestTCPCheckSuccessAndFail(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
