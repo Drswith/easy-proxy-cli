@@ -56,3 +56,44 @@ func IsMisconfig(err error) bool {
 	}
 	return false
 }
+
+// ExitCodeError carries a process exit code without calling os.Exit.
+// Execute maps it to os.Exit; ExecuteArgs returns it to the caller.
+type ExitCodeError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitCodeError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("exit %d", e.Code)
+}
+
+func (e *ExitCodeError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+// WithExit returns an error that should terminate the process with code.
+func WithExit(code int, err error) error {
+	if err == nil {
+		err = fmt.Errorf("exit %d", code)
+	}
+	return &ExitCodeError{Code: code, Err: err}
+}
+
+// ExitCode extracts a requested process exit code, if any.
+func ExitCode(err error) (int, bool) {
+	var e *ExitCodeError
+	if errors.As(err, &e) {
+		return e.Code, true
+	}
+	return 0, false
+}

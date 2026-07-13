@@ -16,8 +16,6 @@ var (
 	flagQuiet bool
 	version   = "0.1.0"
 	commit    = "dev"
-	// processExit is os.Exit by default; tests may override to avoid killing the test binary.
-	processExit = os.Exit
 )
 
 func newRoot() *cobra.Command {
@@ -65,7 +63,10 @@ Designed for AI agents and humans: stable exit codes, --json, schema.`,
 
 func Execute() {
 	if err := ExecuteArgs(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		// ExitCodeError already streamed output (doctor/exec); skip duplicate stderr.
+		if _, ok := apperr.ExitCode(err); !ok {
+			fmt.Fprintln(os.Stderr, "error:", err)
+		}
 		os.Exit(exitCodeFor(err))
 	}
 }
@@ -80,6 +81,9 @@ func ExecuteArgs(args []string) error {
 
 func classifyCLIError(err error) error {
 	if err == nil || apperr.IsMisconfig(err) {
+		return err
+	}
+	if _, ok := apperr.ExitCode(err); ok {
 		return err
 	}
 	msg := err.Error()
@@ -98,6 +102,9 @@ func classifyCLIError(err error) error {
 }
 
 func exitCodeFor(err error) int {
+	if code, ok := apperr.ExitCode(err); ok {
+		return code
+	}
 	if apperr.IsMisconfig(err) {
 		return output.ExitMisconfig
 	}

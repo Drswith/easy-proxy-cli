@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os/exec"
+	"syscall"
 
 	"github.com/drswith/easy-proxy-cli/internal/config"
 	"github.com/drswith/easy-proxy-cli/internal/doctor"
@@ -42,8 +43,19 @@ func exitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	if ee, ok := err.(*exec.ExitError); ok {
-		return ee.ExitCode()
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		return -1
 	}
-	return -1
+	if ws, ok := ee.Sys().(syscall.WaitStatus); ok {
+		if ws.Signaled() {
+			return 128 + int(ws.Signal())
+		}
+		return ws.ExitStatus()
+	}
+	code := ee.ExitCode()
+	if code < 0 {
+		return -1
+	}
+	return code
 }

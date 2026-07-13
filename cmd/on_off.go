@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/config"
@@ -56,6 +57,15 @@ func addResolveFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("uppercase", true, "also export HTTP_PROXY/HTTPS_PROXY/...")
 	cmd.Flags().Bool("no-uppercase", false, "only lowercase proxy vars")
 	cmd.Flags().String("node-ca", "", "set NODE_EXTRA_CA_CERTS path")
+}
+
+func dotenvEscape(v string) string {
+	needQuote := strings.ContainsAny(v, " \t#\"'\\=\n\r")
+	if !needQuote {
+		return v
+	}
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`)
+	return `"` + r.Replace(v) + `"`
 }
 
 func newOnCmd() *cobra.Command {
@@ -202,12 +212,15 @@ func newEnvCmd() *cobra.Command {
 				return err
 			}
 			w := out()
+			if flagJSON {
+				format = "json"
+			}
 			switch format {
 			case "json":
 				return w.JSON(resolved.Env)
 			case "dotenv":
 				for _, k := range proxy.SortedKeys(resolved.Env) {
-					fmt.Fprintf(os.Stdout, "%s=%s\n", k, resolved.Env[k])
+					fmt.Fprintf(os.Stdout, "%s=%s\n", k, dotenvEscape(resolved.Env[k]))
 				}
 			case "export", "":
 				kind, err := shell.Detect(flagShell)
@@ -255,7 +268,7 @@ func newExecCmd() *cobra.Command {
 			c.Stderr = os.Stderr
 			if err := c.Run(); err != nil {
 				if code := exitCode(err); code >= 0 {
-					processExit(code)
+					return apperr.WithExit(code, nil)
 				}
 				return fmt.Errorf("exec %q: %w", args[0], err)
 			}
