@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/drswith/easy-proxy-cli/internal/config"
@@ -18,6 +19,10 @@ func TestSaveUsesPrivatePerms(t *testing.T) {
 	st, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Windows does not honor Unix permission bits the same way.
+	if runtime.GOOS == "windows" {
+		return
 	}
 	if st.Mode().Perm() != 0o600 {
 		t.Fatalf("perm=%o want 0600", st.Mode().Perm())
