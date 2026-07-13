@@ -195,10 +195,11 @@ type candidate struct {
 }
 
 func candidateFiles(home string) []candidate {
-	fish := filepath.Join(home, ".config", "fish", "config.fish")
-	nu := filepath.Join(home, ".config", "nushell", "config.nu")
+	cfg := xdgConfigHome(home)
+	fish := filepath.Join(cfg, "fish", "config.fish")
+	nu := filepath.Join(cfg, "nushell", "config.nu")
 	list := []candidate{
-		{shell.Zsh, filepath.Join(home, ".zshrc")},
+		{shell.Zsh, zshrcPath(home)},
 		{shell.Bash, filepath.Join(home, ".bashrc")},
 		{shell.Bash, filepath.Join(home, ".bash_profile")},
 		{shell.Posix, filepath.Join(home, ".profile")},
@@ -212,7 +213,7 @@ func candidateFiles(home string) []candidate {
 func primaryPaths(kind shell.Kind, home string) []string {
 	switch kind {
 	case shell.Zsh:
-		return []string{filepath.Join(home, ".zshrc")}
+		return []string{zshrcPath(home)}
 	case shell.Bash:
 		// macOS login bash often reads .bash_profile; Linux interactive uses .bashrc.
 		if runtime.GOOS == "darwin" {
@@ -223,11 +224,11 @@ func primaryPaths(kind shell.Kind, home string) []string {
 		}
 		return []string{filepath.Join(home, ".bashrc")}
 	case shell.Fish:
-		return []string{filepath.Join(home, ".config", "fish", "config.fish")}
+		return []string{filepath.Join(xdgConfigHome(home), "fish", "config.fish")}
 	case shell.Posix:
 		return []string{filepath.Join(home, ".profile")}
 	case shell.Nu:
-		return []string{filepath.Join(home, ".config", "nushell", "config.nu")}
+		return []string{filepath.Join(xdgConfigHome(home), "nushell", "config.nu")}
 	case shell.PowerShell:
 		var paths []string
 		for _, c := range powershellCandidates(home) {
@@ -242,6 +243,20 @@ func primaryPaths(kind shell.Kind, home string) []string {
 	}
 }
 
+func zshrcPath(home string) string {
+	if z := strings.TrimSpace(os.Getenv("ZDOTDIR")); z != "" {
+		return filepath.Join(z, ".zshrc")
+	}
+	return filepath.Join(home, ".zshrc")
+}
+
+func xdgConfigHome(home string) string {
+	if x := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); x != "" {
+		return x
+	}
+	return filepath.Join(home, ".config")
+}
+
 func powershellCandidates(home string) []candidate {
 	var out []candidate
 	switch runtime.GOOS {
@@ -254,7 +269,7 @@ func powershellCandidates(home string) []candidate {
 	default:
 		// pwsh on macOS/Linux
 		out = append(out,
-			candidate{shell.PowerShell, filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")},
+			candidate{shell.PowerShell, filepath.Join(xdgConfigHome(home), "powershell", "Microsoft.PowerShell_profile.ps1")},
 		)
 	}
 	return out

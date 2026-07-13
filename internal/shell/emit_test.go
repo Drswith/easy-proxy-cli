@@ -105,6 +105,9 @@ func TestNuHookUsesJSON(t *testing.T) {
 	if !strings.Contains(script, "prefer_lower") || !strings.Contains(script, "http_proxy") {
 		t.Fatalf("nu hook must prefer lowercase proxy keys:\n%s", script)
 	}
+	if !strings.Contains(script, `$data.unset?`) {
+		t.Fatalf("nu on path must apply unset list:\n%s", script)
+	}
 	if !strings.Contains(script, "def scan") {
 		t.Fatalf("nu hook must scan globals before on/off:\n%s", script)
 	}

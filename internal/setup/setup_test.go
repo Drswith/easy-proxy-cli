@@ -82,6 +82,41 @@ func TestIncompleteBlockRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("upsert should refuse incomplete block")
 	}
+	onlyEnd := "keep\n" + MarkerEnd + "\n"
+	_, _, err = upsertBlock(onlyEnd, MarkerBegin+"\nok\n"+MarkerEnd+"\n")
+	if err == nil {
+		t.Fatal("upsert should refuse end-only markers")
+	}
+	dup := MarkerBegin + "\na\n" + MarkerEnd + "\n" + MarkerBegin + "\nb\n" + MarkerEnd + "\n"
+	_, _, err = upsertBlock(dup, MarkerBegin+"\nok\n"+MarkerEnd+"\n")
+	if err == nil {
+		t.Fatal("upsert should refuse duplicate blocks")
+	}
+}
+
+func TestZDOTDIRAndXDGConfigPaths(t *testing.T) {
+	home := t.TempDir()
+	zdot := t.TempDir()
+	xdg := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("ZDOTDIR", zdot)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	zshPaths := primaryPaths(shell.Zsh, home)
+	if len(zshPaths) != 1 || zshPaths[0] != filepath.Join(zdot, ".zshrc") {
+		t.Fatalf("zsh paths: %v", zshPaths)
+	}
+	fishPaths := primaryPaths(shell.Fish, home)
+	wantFish := filepath.Join(xdg, "fish", "config.fish")
+	if len(fishPaths) != 1 || fishPaths[0] != wantFish {
+		t.Fatalf("fish paths: %v want %s", fishPaths, wantFish)
+	}
+	nuPaths := primaryPaths(shell.Nu, home)
+	wantNu := filepath.Join(xdg, "nushell", "config.nu")
+	if len(nuPaths) != 1 || nuPaths[0] != wantNu {
+		t.Fatalf("nu paths: %v want %s", nuPaths, wantNu)
+	}
 }
 
 func TestCreateMissingFalseDoesNotCreate(t *testing.T) {
