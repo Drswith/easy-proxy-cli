@@ -11,9 +11,11 @@
 
 # Test & coverage
 *.test
-*.out
+!docker/Dockerfile.test
 coverage.out
 coverage.html
+bin/ezp-e2e
+bin/ezp-e2e.exe
 
 # Go workspace
 go.work
