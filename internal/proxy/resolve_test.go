@@ -165,26 +165,30 @@ func TestSortedKeysStable(t *testing.T) {
 	}
 }
 
-func TestEnvForJSONDropsUppercaseDuplicates(t *testing.T) {
+func TestEnvEntriesPreservesCaseVariants(t *testing.T) {
 	in := map[string]string{
 		"http_proxy":         "http://x:1",
-		"HTTP_PROXY":         "http://x:1",
+		"HTTP_PROXY":         "http://X:1",
 		"all_proxy":          "socks5://x:1",
-		"ALL_PROXY":          "socks5://x:1",
+		"ALL_PROXY":          "socks5://X:1",
 		"NODE_USE_ENV_PROXY": "1",
 	}
-	out := proxy.EnvForJSON(in)
-	if _, ok := out["HTTP_PROXY"]; ok {
-		t.Fatalf("uppercase duplicate should be omitted: %+v", out)
+	out := proxy.EnvEntries(in)
+	if len(out) != 5 {
+		t.Fatalf("want 5 entries, got %+v", out)
 	}
-	if _, ok := out["ALL_PROXY"]; ok {
-		t.Fatalf("uppercase duplicate should be omitted: %+v", out)
+	byKey := map[string]string{}
+	for _, e := range out {
+		byKey[e.Key] = e.Value
 	}
-	if out["http_proxy"] != "http://x:1" || out["all_proxy"] != "socks5://x:1" {
+	if byKey["http_proxy"] != "http://x:1" || byKey["HTTP_PROXY"] != "http://X:1" {
 		t.Fatalf("%+v", out)
 	}
-	if out["NODE_USE_ENV_PROXY"] != "1" {
-		t.Fatalf("node key should remain: %+v", out)
+	if byKey["NODE_USE_ENV_PROXY"] != "1" {
+		t.Fatalf("%+v", out)
+	}
+	if out[0].Key != "ALL_PROXY" {
+		t.Fatalf("entries should be sorted by key: %+v", out)
 	}
 }
 

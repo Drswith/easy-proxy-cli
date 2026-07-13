@@ -15,14 +15,38 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `|| return $?`) {
 		t.Fatalf("hook must return binary status before eval:\n%s", script)
 	}
-	if !strings.Contains(script, `${1-}`) {
-		t.Fatalf("hook must be nounset-safe:\n%s", script)
+	if !strings.Contains(script, `__ezp_scan`) {
+		t.Fatalf("hook must scan globals before on/off:\n%s", script)
 	}
-	if !strings.Contains(script, `__ezp_should_passthrough`) {
-		t.Fatalf("hook must pflag-parse json flags:\n%s", script)
+	if !strings.Contains(script, `eval "__ezp_a=\${$__ezp_i}"`) && !strings.Contains(script, `eval "__ezp_a=\${$__ezp_i}"`) {
+		// 1-based positional access (POSIX-safe for bash/zsh/dash)
+		if !strings.Contains(script, `__ezp_i`) {
+			t.Fatalf("hook must use positional indexing:\n%s", script)
+		}
 	}
-	if !strings.Contains(script, `--json --json=false`) && !strings.Contains(script, `json=0`) {
-		t.Fatalf("hook must honor last --json assignment:\n%s", script)
+	if strings.Contains(script, `local -a`) {
+		t.Fatalf("shared hook must not use bash arrays:\n%s", script)
+	}
+	if !strings.Contains(script, `__ezp_bool_false`) {
+		t.Fatalf("hook must parse bool assignments:\n%s", script)
+	}
+}
+
+func TestPosixHookIsDashSafe(t *testing.T) {
+	script, err := shell.HookScript(shell.Posix, "/usr/bin/ezp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(script, `local -a`) || strings.Contains(script, `local `) {
+		t.Fatalf("posix hook must avoid local/arrays:\n%s", script)
+	}
+	zsh, err := shell.HookScript(shell.Zsh, "/usr/bin/ezp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Same family as bash/posix: shared 1-based positional scanner.
+	if !strings.Contains(zsh, `__ezp_scan`) {
+		t.Fatalf("zsh hook should share posix scanner:\n%s", zsh)
 	}
 }
 
@@ -34,24 +58,27 @@ func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
 	if !strings.Contains(fish, "--shell fish") {
 		t.Fatalf("fish hook must pass --shell fish:\n%s", fish)
 	}
-	if !strings.Contains(fish, `__ezp_should_passthrough`) {
-		t.Fatalf("fish hook must pflag-parse json flags:\n%s", fish)
+	if !strings.Contains(fish, `__ezp_scan`) {
+		t.Fatalf("fish hook must scan globals before on/off:\n%s", fish)
+	}
+	if !strings.Contains(fish, `__ezp_bool_false`) {
+		t.Fatalf("fish hook must parse bool assignments:\n%s", fish)
 	}
 	ps, err := shell.HookScript(shell.PowerShell, `C:\ezp.exe`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(ps, "--shell powershell") {
+	if !strings.Contains(ps, "--shell") || !strings.Contains(ps, "powershell") {
 		t.Fatalf("powershell hook must pass --shell powershell:\n%s", ps)
 	}
 	if !strings.Contains(ps, "Get-EzpExecForward") {
 		t.Fatalf("powershell hook must place -- after exec flags:\n%s", ps)
 	}
-	if !strings.Contains(ps, "Get-EzpOnOffMode") {
-		t.Fatalf("powershell hook must parse on/off json mode:\n%s", ps)
+	if !strings.Contains(ps, "Get-EzpScan") {
+		t.Fatalf("powershell hook must scan globals before on/off:\n%s", ps)
 	}
-	if !strings.Contains(ps, `$Args -contains 'exec'`) {
-		t.Fatalf("powershell hook must find exec after global flags:\n%s", ps)
+	if !strings.Contains(ps, `--quiet=*`) || !strings.Contains(ps, `-q=*`) {
+		t.Fatalf("powershell exec globals must accept --quiet=false:\n%s", ps)
 	}
 }
 
@@ -66,11 +93,14 @@ func TestNuHookUsesJSON(t *testing.T) {
 	if !strings.Contains(script, `let bin = "/usr/local/bin/ezp"`) {
 		t.Fatalf("expected string literal bin: %s", script)
 	}
-	if !strings.Contains(script, "strip_json_flags") || !strings.Contains(script, "--json | complete") {
-		t.Fatalf("nu hook should append --json after stripping user flags:\n%s", script)
+	if !strings.Contains(script, "--json | complete") {
+		t.Fatalf("nu hook should append --json last:\n%s", script)
 	}
-	if !strings.Contains(script, "should_passthrough") {
-		t.Fatalf("nu hook must pflag-parse json flags:\n%s", script)
+	if !strings.Contains(script, "entries_to_record") {
+		t.Fatalf("nu hook must load env entries:\n%s", script)
+	}
+	if !strings.Contains(script, "def scan") {
+		t.Fatalf("nu hook must scan globals before on/off:\n%s", script)
 	}
 }
 

@@ -100,7 +100,7 @@ Examples:
 					"action":  "on",
 					"profile": resolved.Profile,
 					"mode":    resolved.Mode,
-					"env":     proxy.EnvForJSON(resolved.Env),
+					"env":     proxy.EnvEntries(resolved.Env),
 				})
 			}
 
@@ -176,7 +176,7 @@ func newStatusCmd() *cobra.Command {
 			if flagJSON {
 				return w.JSON(map[string]any{
 					"active": len(cur) > 0,
-					"env":    proxy.EnvForJSON(cur),
+					"env":    proxy.EnvEntries(cur),
 					"count":  len(cur),
 				})
 			}
@@ -217,7 +217,7 @@ func newEnvCmd() *cobra.Command {
 			}
 			switch format {
 			case "json":
-				return w.JSON(proxy.EnvForJSON(resolved.Env))
+				return w.JSON(proxy.EnvEntries(resolved.Env))
 			case "dotenv":
 				for _, k := range proxy.SortedKeys(resolved.Env) {
 					fmt.Fprintf(os.Stdout, "%s=%s\n", k, dotenvEscape(resolved.Env[k]))
