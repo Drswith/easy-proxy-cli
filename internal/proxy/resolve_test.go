@@ -110,6 +110,52 @@ func TestOffKeys(t *testing.T) {
 	}
 }
 
+func TestStaleManagedKeys(t *testing.T) {
+	env := map[string]string{
+		"http_proxy":  "http://x:1",
+		"https_proxy": "http://x:1",
+		"all_proxy":   "socks5://x:1",
+		"no_proxy":    "localhost",
+	}
+	stale := proxy.StaleManagedKeys(env)
+	want := map[string]bool{
+		"HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true,
+		"NODE_USE_ENV_PROXY": true, "NODE_EXTRA_CA_CERTS": true,
+	}
+	if len(stale) != len(want) {
+		t.Fatalf("stale=%v", stale)
+	}
+	for _, k := range stale {
+		if !want[k] {
+			t.Fatalf("unexpected stale %s in %v", k, stale)
+		}
+	}
+}
+
+func TestIsActive(t *testing.T) {
+	if proxy.IsActive(map[string]string{"NO_PROXY": "localhost", "no_proxy": ""}) {
+		t.Fatal("no_proxy alone must not be active")
+	}
+	if !proxy.IsActive(map[string]string{"http_proxy": "http://x:1"}) {
+		t.Fatal("http_proxy should be active")
+	}
+	if proxy.IsActive(map[string]string{"http_proxy": "  "}) {
+		t.Fatal("blank http_proxy must not be active")
+	}
+}
+
+func TestEmptyHostnameRejected(t *testing.T) {
+	cfg := config.Default()
+	_, err := proxy.Resolve(cfg, proxy.ResolveOptions{
+		Mode:  "http",
+		HTTP:  "http://:7897",
+		HTTPS: "http://:7897",
+	})
+	if err == nil {
+		t.Fatal("expected empty hostname rejection")
+	}
+}
+
 func TestApplyToEnvironAndCurrent(t *testing.T) {
 	t.Setenv("http_proxy", "http://set:1")
 	cur := proxy.CurrentFromOS()

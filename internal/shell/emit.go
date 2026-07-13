@@ -800,6 +800,9 @@ def --env --wrapped ezp [...args: string] {
   }
   let data = ($result.stdout | from json)
   if $s.cmd == "on" {
+    for k in ($data.unset? | default []) {
+      hide-env -i $k
+    }
     load-env (entries_to_record $data.env)
   } else {
     for k in $data.unset {

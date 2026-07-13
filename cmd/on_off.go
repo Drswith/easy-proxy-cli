@@ -96,12 +96,14 @@ Examples:
 			}
 
 			w := out()
+			stale := proxy.StaleManagedKeys(resolved.Env)
 			if flagJSON {
 				return w.JSON(map[string]any{
 					"action":  "on",
 					"profile": resolved.Profile,
 					"mode":    resolved.Mode,
 					"env":     proxy.EnvEntries(resolved.Env),
+					"unset":   stale,
 				})
 			}
 
@@ -117,7 +119,7 @@ Examples:
 			if flagShell == "" {
 				kind = shell.Posix
 			}
-			w.Script(shell.EmitExport(kind, resolved.Env))
+			w.Script(shell.EmitUnset(kind, stale) + shell.EmitExport(kind, resolved.Env))
 			return nil
 		},
 	}
@@ -175,16 +177,20 @@ func newStatusCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cur := proxy.CurrentFromOS()
+			active := proxy.IsActive(cur)
 			w := out()
 			if flagJSON {
 				return w.JSON(map[string]any{
-					"active": len(cur) > 0,
+					"active": active,
 					"env":    proxy.EnvEntries(cur),
 					"count":  len(cur),
 				})
 			}
-			if len(cur) == 0 {
-				fmt.Fprintln(os.Stdout, "proxy: inactive (no managed vars set in this process)")
+			if !active {
+				fmt.Fprintln(os.Stdout, "proxy: inactive (no http/https/all proxy URL set)")
+				for _, k := range proxy.SortedKeys(cur) {
+					fmt.Fprintf(os.Stdout, "  %s=%s\n", k, cur[k])
+				}
 				return nil
 			}
 			fmt.Fprintln(os.Stdout, "proxy: active")

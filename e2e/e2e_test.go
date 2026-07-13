@@ -176,13 +176,13 @@ func TestE2ESetupHookShells(t *testing.T) {
 			switch tc.name {
 			case "fish":
 				script = tc.source + `
-ezp on >/dev/null
-test -n "$http_proxy"
-ezp -q on >/dev/null
-test -n "$http_proxy"
-ezp off >/dev/null
-not set -q http_proxy
-ezp on --json >/dev/null
+ezp on >/dev/null; or exit $status
+test -n "$http_proxy"; or exit 1
+ezp -q on >/dev/null; or exit $status
+test -n "$http_proxy"; or exit 1
+ezp off >/dev/null; or exit $status
+not set -q http_proxy; or exit 1
+ezp on --json >/dev/null; or exit $status
 `
 			case "zsh":
 				script = `
@@ -279,6 +279,86 @@ func TestE2EDoctorAgainstLocalListener(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected http_proxy ok: %+v", report)
+	}
+}
+
+func TestE2ESetupHookPowerShell(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		if runtime.GOOS == "windows" {
+			pwsh, err = exec.LookPath("powershell")
+		}
+		if err != nil {
+			t.Skip("pwsh/powershell not installed")
+		}
+	}
+	home := t.TempDir()
+	cfg := t.TempDir()
+	env := []string{
+		"HOME=" + home,
+		"USERPROFILE=" + home,
+		"EASY_PROXY_HOME=" + cfg,
+	}
+	hookOut, _, err := run(t, env, "hook", "powershell")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hookFile := filepath.Join(home, "ezp-hook.ps1")
+	if err := os.WriteFile(hookFile, []byte(hookOut), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	script := `
+$ErrorActionPreference = 'Stop'
+. '` + hookFile + `'
+ezp on
+if (-not $env:http_proxy) { throw 'http_proxy missing after on' }
+ezp -q on
+if (-not $env:http_proxy) { throw 'http_proxy missing after -q on' }
+ezp off
+if ($env:http_proxy) { throw 'http_proxy still set after off' }
+$json = ezp on --json | Out-String
+if ($json -notmatch '"key"') { throw 'json missing key' }
+`
+	cmd := exec.Command(pwsh, "-NoProfile", "-Command", script)
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("powershell hook: %v\n%s", err, out)
+	}
+}
+
+func TestE2ESetupHookNu(t *testing.T) {
+	if _, err := exec.LookPath("nu"); err != nil {
+		t.Skip("nu not installed")
+	}
+	home := t.TempDir()
+	cfg := t.TempDir()
+	env := []string{
+		"HOME=" + home,
+		"EASY_PROXY_HOME=" + cfg,
+	}
+	hookOut, _, err := run(t, env, "hook", "nu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hookFile := filepath.Join(home, "ezp-hook.nu")
+	if err := os.WriteFile(hookFile, []byte(hookOut), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	script := `
+source '` + hookFile + `'
+ezp on
+if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after on"} }
+ezp -q on
+if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after -q on"} }
+ezp off
+if ($env.http_proxy? | default "") != "" { error make {msg: "http_proxy still set after off"} }
+`
+	cmd := exec.Command("nu", "--no-config-file", "-c", script)
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("nu hook: %v\n%s", err, out)
 	}
 }
 

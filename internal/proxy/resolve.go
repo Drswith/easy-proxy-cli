@@ -170,6 +170,32 @@ func OffKeys(mirrorUppercase, node bool) []string {
 	return keys
 }
 
+// StaleManagedKeys returns managed keys absent from env that should be cleared
+// before applying a new on payload (so prior on flags do not linger).
+func StaleManagedKeys(env map[string]string) []string {
+	var stale []string
+	for _, k := range OffKeys(true, true) {
+		if _, ok := env[k]; !ok {
+			stale = append(stale, k)
+		}
+	}
+	return stale
+}
+
+// IsActive reports whether a non-empty http/https/all proxy URL is set.
+// Alone, no_proxy / Node extras do not count as an active proxy.
+func IsActive(cur map[string]string) bool {
+	for _, k := range []string{
+		"http_proxy", "https_proxy", "all_proxy",
+		"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+	} {
+		if v, ok := cur[k]; ok && strings.TrimSpace(v) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // CurrentFromOS reads currently set proxy-related vars from the process env.
 func CurrentFromOS() map[string]string {
 	keys := []string{
@@ -231,7 +257,7 @@ func validateURL(raw, kind string) error {
 	if err != nil {
 		return fmt.Errorf("invalid %s proxy URL %q: %w", kind, raw, err)
 	}
-	if u.Scheme == "" || u.Host == "" {
+	if u.Scheme == "" || u.Host == "" || u.Hostname() == "" {
 		return fmt.Errorf("invalid %s proxy URL %q: need scheme://host:port", kind, raw)
 	}
 	scheme := strings.ToLower(u.Scheme)

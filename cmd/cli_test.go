@@ -171,6 +171,21 @@ func TestOnEmitAndJSON(t *testing.T) {
 	if !strings.Contains(out, "export http_proxy=") {
 		t.Fatalf("stdout=%s", out)
 	}
+	if !strings.Contains(out, "unset HTTP_PROXY") && !strings.Contains(out, "unset NODE_") {
+		// default on still sets uppercase+node, so stale may only include NODE_EXTRA_CA_CERTS
+		if !strings.Contains(out, "unset NODE_EXTRA_CA_CERTS") {
+			t.Fatalf("on emit should clear stale managed keys: %s", out)
+		}
+	}
+	out, _, err = capture(t, "on", "--emit", "--quiet", "--no-uppercase", "--no-node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"HTTP_PROXY", "NODE_USE_ENV_PROXY", "NODE_EXTRA_CA_CERTS"} {
+		if !strings.Contains(out, "unset "+k) {
+			t.Fatalf("missing unset %s in:\n%s", k, out)
+		}
+	}
 	out, _, err = capture(t, "on", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -182,6 +197,9 @@ func TestOnEmitAndJSON(t *testing.T) {
 	envList, ok := m["env"].([]any)
 	if !ok || len(envList) == 0 {
 		t.Fatalf("env entries: %v", m)
+	}
+	if _, ok := m["unset"].([]any); !ok {
+		t.Fatalf("json on must include unset list: %v", m)
 	}
 	found := false
 	for _, item := range envList {
@@ -340,6 +358,27 @@ func TestStatusAndExec(t *testing.T) {
 	}
 	if !strings.Contains(out, "http_proxy") {
 		t.Fatalf("%s", out)
+	}
+	var st map[string]any
+	if err := json.Unmarshal([]byte(out), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st["active"] != true {
+		t.Fatalf("expected active: %v", st)
+	}
+
+	t.Setenv("http_proxy", "")
+	_ = os.Unsetenv("http_proxy")
+	t.Setenv("NO_PROXY", "localhost")
+	out, _, err = capture(t, "status", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(out), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st["active"] != false {
+		t.Fatalf("NO_PROXY alone must be inactive: %v", st)
 	}
 
 	// Prefer a small child so we never fill the stdout pipe (Windows CI env is huge).

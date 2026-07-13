@@ -234,10 +234,8 @@ func removeHook(path string, dryRun bool) (string, error) {
 }
 
 func upsertBlock(content, block string) (string, bool, error) {
-	if strings.Contains(content, MarkerBegin) {
-		if _, _, ok := extractBlock(content); !ok {
-			return content, false, fmt.Errorf("incomplete easy-proxy-cli block (missing end marker); refusing to modify")
-		}
+	if err := validateMarkers(content); err != nil {
+		return content, false, err
 	}
 	if oldBefore, oldBlock, ok := extractBlock(content); ok {
 		if oldBlock == block {
@@ -262,6 +260,9 @@ func upsertBlock(content, block string) (string, bool, error) {
 }
 
 func stripBlock(content string) (string, bool, error) {
+	if err := validateMarkers(content); err != nil {
+		return content, false, err
+	}
 	start := strings.Index(content, MarkerBegin)
 	if start < 0 {
 		return content, false, nil
@@ -278,6 +279,23 @@ func stripBlock(content string) (string, bool, error) {
 	out := content[:start] + content[end:]
 	out = strings.ReplaceAll(out, "\n\n\n", "\n\n")
 	return out, true, nil
+}
+
+// validateMarkers requires begin/end markers to each appear 0 or exactly once,
+// and when both are present begin must precede end.
+func validateMarkers(content string) error {
+	begins := strings.Count(content, MarkerBegin)
+	ends := strings.Count(content, MarkerEnd)
+	if begins == 0 && ends == 0 {
+		return nil
+	}
+	if begins == 1 && ends == 1 {
+		if strings.Index(content, MarkerBegin) > strings.Index(content, MarkerEnd) {
+			return fmt.Errorf("invalid easy-proxy-cli markers (end before begin); refusing to modify")
+		}
+		return nil
+	}
+	return fmt.Errorf("invalid easy-proxy-cli markers (begin=%d end=%d); refusing to modify", begins, ends)
 }
 
 func extractBlock(content string) (before string, block string, ok bool) {
