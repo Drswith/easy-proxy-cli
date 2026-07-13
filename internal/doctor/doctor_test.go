@@ -116,3 +116,44 @@ func TestHTTPViaProxyRejects407(t *testing.T) {
 		t.Fatalf("expected https_via_proxy 407 failure: %+v", report.Checks)
 	}
 }
+
+func TestHTTPViaProxyFallsBackFrom501(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer upstream.Close()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodConnect {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		target := r.URL.String()
+		if !r.URL.IsAbs() {
+			target = "http://" + r.Host + r.URL.RequestURI()
+		}
+		resp, err := http.Get(target)
+		if err != nil {
+			http.Error(w, err.Error(), 502)
+			return
+		}
+		defer resp.Body.Close()
+		w.WriteHeader(resp.StatusCode)
+	}))
+	proxy.Listener = ln
+	proxy.Start()
+	defer proxy.Close()
+
+	report := doctor.Run(proxy.URL, "", upstream.URL, time.Second)
+	if !report.OK {
+		t.Fatalf("501 HEAD should fall back to GET: %+v", report)
+	}
+}

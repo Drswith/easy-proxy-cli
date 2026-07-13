@@ -113,7 +113,8 @@ install_from_release() {
   fi
 
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  # Avoid RETURN trap + local tmp (set -u sees unbound tmp after function returns).
+  cleanup_tmp() { rm -rf "$tmp"; }
   log "downloading ${url}"
   local dest="${tmp}/${BIN_NAME}"
   if ! download "$url" "$dest"; then
@@ -121,6 +122,7 @@ install_from_release() {
     if download "${url}.tar.gz" "${tmp}/ezp.tgz"; then
       tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
     else
+      cleanup_tmp
       return 1
     fi
   elif [[ "$url" == *.tar.gz || "$url" == *.tgz ]]; then
@@ -133,11 +135,15 @@ install_from_release() {
   # After extract, binary may be at tmp/ezp or nested; prefer direct path.
   if [ ! -f "${tmp}/${BIN_NAME}" ]; then
     found="$(find "$tmp" -type f -name "$BIN_NAME" | head -n1 || true)"
-    [ -n "$found" ] || return 1
+    if [ -z "$found" ]; then
+      cleanup_tmp
+      return 1
+    fi
     cp "$found" "${tmp}/${BIN_NAME}"
   fi
   mkdir -p "$INSTALL_DIR"
   install -m 0755 "${tmp}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"
+  cleanup_tmp
   log "installed ${INSTALL_DIR}/${BIN_NAME}"
 }
 

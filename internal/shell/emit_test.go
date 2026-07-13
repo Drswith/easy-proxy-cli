@@ -18,12 +18,32 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `${1-}`) {
 		t.Fatalf("hook must be nounset-safe:\n%s", script)
 	}
-	if !strings.Contains(script, `--json`) {
-		t.Fatalf("hook must bypass emit for --json:\n%s", script)
+	if !strings.Contains(script, `--json=*`) {
+		t.Fatalf("hook must recognize --json= forms:\n%s", script)
 	}
 }
 
-func TestNuQuoteIsStringLiteral(t *testing.T) {
+func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
+	fish, err := shell.HookScript(shell.Fish, "/usr/bin/ezp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fish, "--shell fish") {
+		t.Fatalf("fish hook must pass --shell fish:\n%s", fish)
+	}
+	ps, err := shell.HookScript(shell.PowerShell, `C:\ezp.exe`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(ps, "--shell powershell") {
+		t.Fatalf("powershell hook must pass --shell powershell:\n%s", ps)
+	}
+	if !strings.Contains(ps, "exec --") {
+		t.Fatalf("powershell hook must re-insert exec --:\n%s", ps)
+	}
+}
+
+func TestNuHookUsesJSON(t *testing.T) {
 	script, err := shell.HookScript(shell.Nu, "/usr/local/bin/ezp")
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +53,12 @@ func TestNuQuoteIsStringLiteral(t *testing.T) {
 	}
 	if !strings.Contains(script, `let bin = "/usr/local/bin/ezp"`) {
 		t.Fatalf("expected string literal bin: %s", script)
+	}
+	if !strings.Contains(script, "--json") || !strings.Contains(script, "from json") {
+		t.Fatalf("nu hook should consume --json:\n%s", script)
+	}
+	if !strings.Contains(script, "return (^$bin") {
+		t.Fatalf("nu readonly path should return pipeline output:\n%s", script)
 	}
 }
 
