@@ -1,0 +1,22 @@
+# Example config — copy to ~/.easy-proxy/config.toml
+#   mkdir -p ~/.easy-proxy && cp examples/config.toml ~/.easy-proxy/config.toml
+
+version = 1
+default_profile = "default"
+
+[profiles.default]
+http = "http://127.0.0.1:7897"
+https = "http://127.0.0.1:7897"
+socks = "socks5://127.0.0.1:7897"
+no_proxy = "localhost,127.0.0.1,::1,.local"
+
+[profiles.clash-7890]
+http = "http://127.0.0.1:7890"
+https = "http://127.0.0.1:7890"
+socks = "socks5://127.0.0.1:7890"
+no_proxy = "localhost,127.0.0.1,::1,.local"
+
+[extras]
+mirror_uppercase = true
+node_use_env_proxy = true
+# node_extra_ca_certs = "/path/to/corporate-ca.pem"
