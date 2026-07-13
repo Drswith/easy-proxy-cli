@@ -90,15 +90,32 @@ func HookScript(kind Kind, binPath string) (string, error) {
 ezp() {
   local __ezp_bin=%s
   local cmd="${1-}"
+  __ezp_json_true() {
+    case "$1" in
+      --json|-j) return 0 ;;
+      --json=false|--json=FALSE|--json=False|--json=0|--json=f|--json=F) return 1 ;;
+      --json=true|--json=TRUE|--json=True|--json=1|--json=t|--json=T) return 0 ;;
+      --json=*) return 0 ;;
+      -j=false|-j=FALSE|-j=False|-j=0|-j=f|-j=F) return 1 ;;
+      -j=true|-j=TRUE|-j=True|-j=1|-j=t|-j=T) return 0 ;;
+      -j=*) return 0 ;;
+      --help|-h|--version) return 0 ;;
+      -*=*) return 1 ;;
+      -*)
+        case "${1#-}" in
+          *j*) return 0 ;;
+        esac
+        ;;
+    esac
+    return 1
+  }
   if [ "$cmd" = "on" ] || [ "$cmd" = "off" ]; then
     local __a
     for __a in "$@"; do
-      case "$__a" in
-        --json|--json=*|-j|-j=*|-j?*|--help|-h|--version)
-          "$__ezp_bin" "$@"
-          return $?
-          ;;
-      esac
+      if __ezp_json_true "$__a"; then
+        "$__ezp_bin" "$@"
+        return $?
+      fi
     done
     shift
     local __ezp_out
@@ -111,6 +128,25 @@ ezp() {
 `, shQuote(binPath)), nil
 	case Fish:
 		return fmt.Sprintf(`# easy-proxy-cli shell hook (fish)
+function __ezp_json_true
+  set -l a $argv[1]
+  switch $a
+    case --json -j --help -h --version
+      return 0
+    case --json=false --json=FALSE --json=False --json=0 --json=f --json=F -j=false -j=FALSE -j=False -j=0 -j=f -j=F
+      return 1
+    case "--json=*" "-j=*"
+      return 0
+    case "-*"
+      set -l rest (string sub -s 2 -- $a)
+      if string match -q -r '^[^=]*j' -- $rest
+        return 0
+      end
+      return 1
+  end
+  return 1
+end
+
 function ezp
   set -l __ezp_bin %s
   set -l cmd
@@ -119,10 +155,9 @@ function ezp
   end
   if test "$cmd" = "on" -o "$cmd" = "off"
     for __a in $argv
-      switch $__a
-        case --json "--json=*" -j "-j=*" "-j?*" --help -h --version
-          $__ezp_bin $argv
-          return $status
+      if __ezp_json_true $__a
+        $__ezp_bin $argv
+        return $status
       end
     end
     set -e argv[1]
@@ -143,16 +178,59 @@ function ezp {
   param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Args)
   $bin = %s
   if ($null -eq $Args) { $Args = @() }
-  function Test-EzpReadonlyFlag([string]$a) {
-    if ($a -in @('--json','-j','--help','-h','--version')) { return $true }
-    if ($a -like '--json=*') { return $true }
-    if ($a -like '-j=*') { return $true }
-    if ($a -match '^-j.') { return $true }
-    return $false
+  function Test-EzpJsonTrue([string]$a) {
+    switch -Regex ($a) {
+      '^(--json|-j|--help|-h|--version)$' { return $true }
+      '^--json=(?i:false|0|f)$' { return $false }
+      '^-j=(?i:false|0|f)$' { return $false }
+      '^--json=' { return $true }
+      '^-j=' { return $true }
+      '^-([^=]*j[^=]*)$' { return $true }
+      default { return $false }
+    }
+  }
+  function Get-EzpExecForward([string[]]$inArgs) {
+    # PowerShell drops a literal "--"; re-insert it after exec's own flags.
+    $valueFlags = @('--profile','-p','--http','--https','--socks','--no-proxy','--host','--port','--mode','--node-ca','--shell')
+    $boolFlags = @('--node','--no-node','--uppercase','--no-uppercase','--json','-j','--quiet','-q','--help','-h','--version','--emit')
+    $i = 1
+    while ($i -lt $inArgs.Count) {
+      $a = $inArgs[$i]
+      if ($a -eq '--') { $i++; break }
+      $matched = $false
+      foreach ($f in $valueFlags) {
+        if ($a -eq $f) {
+          $i += 2
+          $matched = $true
+          break
+        }
+        if ($a.StartsWith("$f=")) {
+          $i++
+          $matched = $true
+          break
+        }
+      }
+      if ($matched) { continue }
+      if ($boolFlags -contains $a -or $a -like '--json=*' -or $a -like '-j=*' -or $a -match '^-([jqh]+)$') {
+        $i++
+        continue
+      }
+      break
+    }
+    $forward = New-Object System.Collections.Generic.List[string]
+    [void]$forward.Add('exec')
+    if ($i -gt 1) {
+      foreach ($x in $inArgs[1..($i-1)]) { [void]$forward.Add($x) }
+    }
+    [void]$forward.Add('--')
+    if ($i -lt $inArgs.Count) {
+      foreach ($x in $inArgs[$i..($inArgs.Count-1)]) { [void]$forward.Add($x) }
+    }
+    return ,$forward.ToArray()
   }
   if ($Args.Count -ge 1 -and ($Args[0] -eq 'on' -or $Args[0] -eq 'off')) {
     foreach ($a in $Args) {
-      if (Test-EzpReadonlyFlag $a) {
+      if (Test-EzpJsonTrue $a) {
         & $bin @Args
         if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
         return
@@ -175,10 +253,8 @@ function ezp {
     return
   }
   if ($Args.Count -ge 1 -and $Args[0] -eq 'exec') {
-    # PowerShell consumes a literal "--" during binding; re-insert for Cobra.
-    $rest = @()
-    if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
-    & $bin exec -- @rest
+    $forward = Get-EzpExecForward $Args
+    & $bin @forward
     return
   }
   & $bin @Args
@@ -190,11 +266,11 @@ function ezp {
 def --env --wrapped ezp [...args: string] {
   let bin = %s
   let cmd = ($args | get 0? | default "")
-  let is_readonly = {|a|
-    ($a == "--json") or ($a == "-j") or ($a == "--help") or ($a == "-h") or ($a == "--version") or ($a | str starts-with "--json=") or ($a | str starts-with "-j=") or (($a | str starts-with "-j") and (($a | str length) > 2))
+  let is_json_true = {|a|
+    if $a in ["--json" "-j" "--help" "-h" "--version"] { true } else if $a in ["--json=false" "--json=FALSE" "--json=False" "--json=0" "--json=f" "--json=F" "-j=false" "-j=FALSE" "-j=False" "-j=0" "-j=f" "-j=F"] { false } else if ($a | str starts-with "--json=") { true } else if ($a | str starts-with "-j=") { true } else if (($a | str starts-with "-") and (not ($a | str contains "=")) and ($a | str contains "j")) { true } else { false }
   }
   if $cmd == "on" or $cmd == "off" {
-    if ($args | any $is_readonly) {
+    if ($args | any $is_json_true) {
       return (^$bin ...$args)
     }
     let rest = ($args | skip 1)

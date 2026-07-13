@@ -39,13 +39,16 @@ function Get-LatestTag {
 
 function Install-FromRelease {
     $arch = Get-Arch
-    $tag = $Version
-    if ($tag -eq "latest") {
-        $tag = Get-LatestTag
-    }
     $asset = "ezp-windows-$arch.exe"
-    $url = if ($env:EZP_BIN_URL) { $env:EZP_BIN_URL } else {
-        "https://github.com/$Repo/releases/download/$tag/$asset"
+    $url = $null
+    if ($env:EZP_BIN_URL) {
+        $url = $env:EZP_BIN_URL
+    } else {
+        $tag = $Version
+        if ($tag -eq "latest") {
+            $tag = Get-LatestTag
+        }
+        $url = "https://github.com/$Repo/releases/download/$tag/$asset"
     }
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
     $dest = Join-Path $Dir $BinName
