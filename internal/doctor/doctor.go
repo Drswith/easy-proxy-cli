@@ -104,17 +104,22 @@ func httpCheck(proxyURL, probeURL string, timeout time.Duration) CheckResult {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, probeURL, nil)
-	if err != nil {
-		return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
+
+	do := func(method string) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, method, probeURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
 	}
-	resp, err := client.Do(req)
+
+	resp, err := do(http.MethodHead)
 	if err != nil {
-		// Some sites reject HEAD; fall back to GET briefly.
-		if strings.Contains(err.Error(), "HEAD") {
+		// Some sites reject HEAD; fall back to GET.
+		resp, err = do(http.MethodGet)
+		if err != nil {
 			return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
 		}
-		return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
 	}
 	defer resp.Body.Close()
 	// 407 means the proxy rejected the request (auth required) — not healthy.

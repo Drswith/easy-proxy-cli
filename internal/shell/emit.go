@@ -89,8 +89,17 @@ func HookScript(kind Kind, binPath string) (string, error) {
 		return fmt.Sprintf(`# easy-proxy-cli shell hook
 ezp() {
   local __ezp_bin=%s
-  local cmd="$1"
+  local cmd="${1-}"
   if [ "$cmd" = "on" ] || [ "$cmd" = "off" ]; then
+    local __a
+    for __a in "$@"; do
+      case "$__a" in
+        --json|-j|--help|-h|--version)
+          "$__ezp_bin" "$@"
+          return $?
+          ;;
+      esac
+    done
     shift
     local __ezp_out
     __ezp_out="$("$__ezp_bin" "$cmd" --emit "$@")" || return $?
@@ -104,8 +113,18 @@ ezp() {
 		return fmt.Sprintf(`# easy-proxy-cli shell hook (fish)
 function ezp
   set -l __ezp_bin %s
-  set -l cmd $argv[1]
+  set -l cmd
+  if set -q argv[1]
+    set cmd $argv[1]
+  end
   if test "$cmd" = "on" -o "$cmd" = "off"
+    for __a in $argv
+      switch $__a
+        case --json -j --help -h --version
+          $__ezp_bin $argv
+          return $status
+      end
+    end
     set -e argv[1]
     set -l __ezp_out ($__ezp_bin $cmd --emit $argv | string collect)
     set -l __ezp_status $pipestatus[1]
@@ -123,16 +142,34 @@ end
 function ezp {
   param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Args)
   $bin = %s
+  if ($null -eq $Args) { $Args = @() }
   if ($Args.Count -ge 1 -and ($Args[0] -eq 'on' -or $Args[0] -eq 'off')) {
+    $readonly = @('--json','-j','--help','-h','--version')
+    foreach ($a in $Args) {
+      if ($readonly -contains $a) {
+        & $bin @Args
+        if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
+        return
+      }
+    }
     $cmd = $Args[0]
     $rest = @()
     if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
-    $script = & $bin $cmd --emit @rest 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
-    Invoke-Expression $script
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $raw = & $bin $cmd --emit @rest 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prevEap
+    $text = ($raw | ForEach-Object { "$_" }) -join [Environment]::NewLine
+    if ($code -ne 0) {
+      if ($text) { Write-Error $text }
+      throw "ezp $cmd failed with exit $code"
+    }
+    if ($text) { Invoke-Expression $text }
     return
   }
   & $bin @Args
+  if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
 }
 `, psQuote(binPath)), nil
 	case Nu:
@@ -142,6 +179,11 @@ def --env --wrapped ezp [...args: string] {
   let bin = %s
   let cmd = ($args | get 0? | default "")
   if $cmd == "on" or $cmd == "off" {
+    let readonly = ["--json" "-j" "--help" "-h" "--version"]
+    if ($args | any {|a| $a in $readonly}) {
+      ^$bin ...$args
+      return
+    }
     let rest = ($args | skip 1)
     let result = (^$bin $cmd --emit --shell sh ...$rest | complete)
     if $result.exit_code != 0 {
@@ -203,5 +245,8 @@ func cmdEscape(s string) string {
 }
 
 func nuQuote(s string) string {
-	return "`" + strings.ReplaceAll(s, "`", "``") + "`"
+	// Nushell string literal (backticks execute commands).
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return `"` + s + `"`
 }

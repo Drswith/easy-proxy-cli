@@ -223,7 +223,7 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				if !report.OK {
-					processExit(output.ExitUnavailable)
+					return apperr.WithExit(output.ExitUnavailable, nil)
 				}
 				return nil
 			}
@@ -242,7 +242,7 @@ func newDoctorCmd() *cobra.Command {
 				fmt.Fprintln(os.Stdout, line)
 			}
 			if !report.OK {
-				processExit(output.ExitUnavailable)
+				return apperr.WithExit(output.ExitUnavailable, nil)
 			}
 			return nil
 		},
@@ -338,7 +338,7 @@ func newCompletionCmd() *cobra.Command {
 			case "powershell":
 				return root.GenPowerShellCompletionWithDesc(os.Stdout)
 			default:
-				return fmt.Errorf("unsupported shell %q", args[0])
+				return apperr.Misconfigf("unsupported shell %q", args[0])
 			}
 		},
 	}

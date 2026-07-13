@@ -64,6 +64,9 @@ function Install-WithGo {
     Write-Log "go install github.com/$Repo/cmd/ezp@$ver"
     $env:GOBIN = $Dir
     & go install "github.com/$Repo/cmd/ezp@$ver"
+    if ($LASTEXITCODE -ne 0) {
+        throw "go install failed with exit $LASTEXITCODE"
+    }
     $dest = Join-Path $Dir $BinName
     if (-not (Test-Path $dest)) {
         # go install on Windows names binary from package dir: ezp.exe
@@ -97,6 +100,9 @@ function Invoke-Setup([string]$bin) {
     # ezp setup auto-detects Windows profiles.
     Write-Log "running: $bin $($args -join ' ')"
     & $bin @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "ezp setup failed with exit $LASTEXITCODE"
+    }
 }
 
 # --- main ---

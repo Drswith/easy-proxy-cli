@@ -71,7 +71,7 @@ detect_arch() {
   case "$m" in
     x86_64|amd64) echo amd64 ;;
     aarch64|arm64) echo arm64 ;;
-    armv7l) echo arm ;;
+    armv7l|armv6l) die "unsupported arch: $m (release builds are amd64/arm64 only; build from source)" ;;
     *) die "unsupported arch: $m" ;;
   esac
 }
@@ -115,13 +115,26 @@ install_from_release() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
   log "downloading ${url}"
-  if ! download "$url" "${tmp}/${BIN_NAME}"; then
-    # try .tar.gz wrapper
+  local dest="${tmp}/${BIN_NAME}"
+  if ! download "$url" "$dest"; then
+    # try .tar.gz wrapper of the bare asset URL
     if download "${url}.tar.gz" "${tmp}/ezp.tgz"; then
       tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
     else
       return 1
     fi
+  elif [[ "$url" == *.tar.gz || "$url" == *.tgz ]]; then
+    mv "$dest" "${tmp}/ezp.tgz"
+    tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
+  elif command -v file >/dev/null 2>&1 && file "$dest" | grep -qi 'gzip compressed'; then
+    mv "$dest" "${tmp}/ezp.tgz"
+    tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
+  fi
+  # After extract, binary may be at tmp/ezp or nested; prefer direct path.
+  if [ ! -f "${tmp}/${BIN_NAME}" ]; then
+    found="$(find "$tmp" -type f -name "$BIN_NAME" | head -n1 || true)"
+    [ -n "$found" ] || return 1
+    cp "$found" "${tmp}/${BIN_NAME}"
   fi
   mkdir -p "$INSTALL_DIR"
   install -m 0755 "${tmp}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"

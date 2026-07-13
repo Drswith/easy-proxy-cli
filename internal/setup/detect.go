@@ -246,7 +246,7 @@ func powershellCandidates(home string) []candidate {
 	var out []candidate
 	switch runtime.GOOS {
 	case "windows":
-		docs := filepath.Join(home, "Documents")
+		docs := windowsDocumentsDir(home)
 		out = append(out,
 			candidate{shell.PowerShell, filepath.Join(docs, "PowerShell", "Microsoft.PowerShell_profile.ps1")},
 			candidate{shell.PowerShell, filepath.Join(docs, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1")},
@@ -258,6 +258,18 @@ func powershellCandidates(home string) []candidate {
 		)
 	}
 	return out
+}
+
+func windowsDocumentsDir(home string) string {
+	// Prefer the redirected Documents Known Folder (OneDrive / Group Policy).
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"[Environment]::GetFolderPath('MyDocuments')").Output()
+	if err == nil {
+		if p := strings.TrimSpace(string(out)); p != "" {
+			return p
+		}
+	}
+	return filepath.Join(home, "Documents")
 }
 
 func fileExists(path string) bool {

@@ -65,6 +65,9 @@ func Resolve(cfg config.Config, opt ResolveOptions) (Resolved, error) {
 		if port == 0 {
 			port = 7897
 		}
+		if port < 1 || port > 65535 {
+			return Resolved{}, apperr.Misconfigf("invalid port %d (want 1..65535)", port)
+		}
 		httpURL = fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(port)))
 		httpsURL = httpURL
 		socksURL = fmt.Sprintf("socks5://%s", net.JoinHostPort(host, strconv.Itoa(port)))
@@ -226,6 +229,12 @@ func validateURL(raw, kind string) error {
 		case "http", "https", "socks5", "socks5h":
 		default:
 			return fmt.Errorf("invalid %s proxy URL %q: scheme must be http/https/socks5/socks5h", kind, raw)
+		}
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return fmt.Errorf("invalid %s proxy URL %q: port must be 1..65535", kind, raw)
 		}
 	}
 	return nil

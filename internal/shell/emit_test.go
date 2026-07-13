@@ -15,6 +15,25 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `|| return $?`) {
 		t.Fatalf("hook must return binary status before eval:\n%s", script)
 	}
+	if !strings.Contains(script, `${1-}`) {
+		t.Fatalf("hook must be nounset-safe:\n%s", script)
+	}
+	if !strings.Contains(script, `--json`) {
+		t.Fatalf("hook must bypass emit for --json:\n%s", script)
+	}
+}
+
+func TestNuQuoteIsStringLiteral(t *testing.T) {
+	script, err := shell.HookScript(shell.Nu, "/usr/local/bin/ezp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(script, "let bin = `/usr/local/bin/ezp`") {
+		t.Fatalf("nuQuote must not use backticks: %s", script)
+	}
+	if !strings.Contains(script, `let bin = "/usr/local/bin/ezp"`) {
+		t.Fatalf("expected string literal bin: %s", script)
+	}
 }
 
 func TestDetect(t *testing.T) {

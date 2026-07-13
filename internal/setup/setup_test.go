@@ -22,7 +22,10 @@ func TestUpsertAndStripBlock(t *testing.T) {
 	if changed2 {
 		t.Fatal("idempotent write should not change")
 	}
-	stripped, ok := stripBlock(next)
+	stripped, ok, err := stripBlock(next)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !ok || strings.Contains(stripped, MarkerBegin) {
 		t.Fatalf("strip failed: %q", stripped)
 	}
@@ -60,6 +63,14 @@ func TestWriteHookRoundTrip(t *testing.T) {
 	action, err = removeHook(path, false)
 	if err != nil || action != "removed" {
 		t.Fatalf("remove action=%s err=%v", action, err)
+	}
+}
+
+func TestIncompleteBlockRefused(t *testing.T) {
+	broken := MarkerBegin + "\nezp() { :; }\n# user stuff\n"
+	_, _, err := stripBlock(broken)
+	if err == nil {
+		t.Fatal("expected incomplete block error")
 	}
 }
 

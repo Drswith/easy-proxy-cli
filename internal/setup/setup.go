@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/drswith/easy-proxy-cli/internal/config"
 	"github.com/drswith/easy-proxy-cli/internal/shell"
 )
 
@@ -77,13 +78,24 @@ func Run(opt Options) (Result, error) {
 	res := Result{Binary: bin, Targets: make([]TargetResult, 0, len(targets))}
 
 	if opt.InitConfig && !opt.Uninstall {
-		path, created, err := ensureConfig()
-		if err != nil {
-			return Result{}, err
-		}
-		res.Config = path
-		if created {
-			res.Hints = append(res.Hints, "created config "+path)
+		if opt.DryRun {
+			path, err := config.Path()
+			if err != nil {
+				return Result{}, err
+			}
+			res.Config = path
+			if !fileExists(path) {
+				res.Hints = append(res.Hints, "would create config "+path)
+			}
+		} else {
+			path, created, err := ensureConfig()
+			if err != nil {
+				return Result{}, err
+			}
+			res.Config = path
+			if created {
+				res.Hints = append(res.Hints, "created config "+path)
+			}
 		}
 	}
 
@@ -198,7 +210,10 @@ func removeHook(path string, dryRun bool) (string, error) {
 		}
 		return "skipped", err
 	}
-	next, changed := stripBlock(string(data))
+	next, changed, err := stripBlock(string(data))
+	if err != nil {
+		return "skipped", err
+	}
 	if !changed {
 		return "skipped", nil
 	}
@@ -238,15 +253,14 @@ func upsertBlock(content, block string) (string, bool) {
 	return trimmed + "\n\n" + block, true
 }
 
-func stripBlock(content string) (string, bool) {
+func stripBlock(content string) (string, bool, error) {
 	start := strings.Index(content, MarkerBegin)
 	if start < 0 {
-		return content, false
+		return content, false, nil
 	}
 	end := strings.Index(content[start:], MarkerEnd)
 	if end < 0 {
-		// broken block: remove from marker to EOF
-		return strings.TrimRight(content[:start], "\n") + "\n", true
+		return content, false, fmt.Errorf("incomplete easy-proxy-cli block (missing end marker); refusing to modify")
 	}
 	end = start + end + len(MarkerEnd)
 	// swallow trailing newline
@@ -255,7 +269,7 @@ func stripBlock(content string) (string, bool) {
 	}
 	out := content[:start] + content[end:]
 	out = strings.ReplaceAll(out, "\n\n\n", "\n\n")
-	return out, true
+	return out, true, nil
 }
 
 func extractBlock(content string) (before string, block string, ok bool) {

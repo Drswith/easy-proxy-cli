@@ -12,19 +12,14 @@ import (
 )
 
 func TestTCPCheckDefaultPort(t *testing.T) {
-	// Portless URL should dial :80, not fail with "missing port in address".
-	fail := doctor.Run("http://127.0.0.1", "", "", 200*time.Millisecond)
-	if fail.OK {
-		t.Fatalf("expected fail: %+v", fail)
-	}
-	if len(fail.Checks) == 0 {
+	// Assert default-port resolution only; do not require :80 to be closed
+	// (GitHub Windows runners often have something listening on 80).
+	report := doctor.Run("http://127.0.0.1", "", "", 200*time.Millisecond)
+	if len(report.Checks) == 0 {
 		t.Fatal("expected checks")
 	}
-	if strings.Contains(fail.Checks[0].Error, "missing port") {
-		t.Fatalf("should default port, got %q", fail.Checks[0].Error)
-	}
-	if fail.Checks[0].Target != "127.0.0.1:80" {
-		t.Fatalf("target=%q want 127.0.0.1:80", fail.Checks[0].Target)
+	if report.Checks[0].Target != "127.0.0.1:80" {
+		t.Fatalf("target=%q want 127.0.0.1:80", report.Checks[0].Target)
 	}
 }
 

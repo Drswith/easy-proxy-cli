@@ -41,6 +41,27 @@ type Extras struct {
 	NodeExtraCACerts string `toml:"node_extra_ca_certs" json:"node_extra_ca_certs,omitempty"`
 }
 
+// raw* types distinguish omitted TOML fields from explicit zero values.
+type rawConfig struct {
+	Version        *int                  `toml:"version"`
+	DefaultProfile *string               `toml:"default_profile"`
+	Profiles       map[string]rawProfile `toml:"profiles"`
+	Extras         *rawExtras            `toml:"extras"`
+}
+
+type rawProfile struct {
+	HTTP    *string `toml:"http"`
+	HTTPS   *string `toml:"https"`
+	Socks   *string `toml:"socks"`
+	NoProxy *string `toml:"no_proxy"`
+}
+
+type rawExtras struct {
+	MirrorUppercase  *bool   `toml:"mirror_uppercase"`
+	NodeUseEnvProxy  *bool   `toml:"node_use_env_proxy"`
+	NodeExtraCACerts *string `toml:"node_extra_ca_certs"`
+}
+
 // Default returns a sensible Clash/V2Ray local mixed-port profile.
 func Default() Config {
 	return Config{
@@ -103,12 +124,59 @@ func Load() (Config, error) {
 		}
 		return Config{}, err
 	}
-	var cfg Config
-	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("parse %s: %w", path, err)
+	var raw rawConfig
+	if err := toml.Unmarshal(data, &raw); err != nil {
+		return Config{}, apperr.Misconfig(fmt.Errorf("parse %s: %w", path, err))
 	}
-	cfg = cfg.withDefaults()
-	return cfg, nil
+	return mergeRaw(raw), nil
+}
+
+func mergeRaw(raw rawConfig) Config {
+	cfg := Default()
+	if raw.Version != nil {
+		cfg.Version = *raw.Version
+	}
+	if raw.DefaultProfile != nil && *raw.DefaultProfile != "" {
+		cfg.DefaultProfile = *raw.DefaultProfile
+	}
+	if raw.Profiles != nil {
+		cfg.Profiles = map[string]Profile{}
+		for name, rp := range raw.Profiles {
+			p := Profile{}
+			if rp.HTTP != nil {
+				p.HTTP = *rp.HTTP
+			}
+			if rp.HTTPS != nil {
+				p.HTTPS = *rp.HTTPS
+			} else {
+				p.HTTPS = p.HTTP
+			}
+			if rp.Socks != nil {
+				p.Socks = *rp.Socks
+			}
+			if rp.NoProxy != nil {
+				p.NoProxy = *rp.NoProxy // may be ""
+			} else {
+				p.NoProxy = Default().Profiles["default"].NoProxy
+			}
+			cfg.Profiles[name] = p
+		}
+	}
+	if raw.Extras != nil {
+		if raw.Extras.MirrorUppercase != nil {
+			cfg.Extras.MirrorUppercase = *raw.Extras.MirrorUppercase
+		}
+		if raw.Extras.NodeUseEnvProxy != nil {
+			cfg.Extras.NodeUseEnvProxy = *raw.Extras.NodeUseEnvProxy
+		}
+		if raw.Extras.NodeExtraCACerts != nil {
+			cfg.Extras.NodeExtraCACerts = *raw.Extras.NodeExtraCACerts
+		}
+	}
+	if cfg.Version == 0 {
+		cfg.Version = ConfigVersion
+	}
+	return cfg
 }
 
 // LoadOrCreate ensures the config directory and file exist.
@@ -146,27 +214,6 @@ func Save(cfg Config) error {
 	}
 	// Tighten perms even when overwriting an older 0644 file (may contain credentials).
 	return os.Chmod(path, 0o600)
-}
-
-func (c Config) withDefaults() Config {
-	d := Default()
-	if c.Version == 0 {
-		c.Version = ConfigVersion
-	}
-	if c.DefaultProfile == "" {
-		c.DefaultProfile = d.DefaultProfile
-	}
-	if c.Profiles == nil {
-		c.Profiles = d.Profiles
-	}
-	for name, p := range c.Profiles {
-		if p.HTTPS == "" {
-			p.HTTPS = p.HTTP
-		}
-		// Preserve intentional empty no_proxy (do not refill from defaults).
-		c.Profiles[name] = p
-	}
-	return c
 }
 
 func (c Config) Profile(name string) (Profile, error) {
