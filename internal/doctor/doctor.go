@@ -55,9 +55,9 @@ func tcpCheck(name, raw string, timeout time.Duration) CheckResult {
 	if err != nil {
 		return CheckResult{Name: name, Target: raw, OK: false, Error: err.Error()}
 	}
-	host := u.Host
-	if host == "" {
-		return CheckResult{Name: name, Target: raw, OK: false, Error: "missing host"}
+	host, err := dialHost(u)
+	if err != nil {
+		return CheckResult{Name: name, Target: raw, OK: false, Error: err.Error()}
 	}
 	start := time.Now()
 	conn, err := net.DialTimeout("tcp", host, timeout)
@@ -71,6 +71,27 @@ func tcpCheck(name, raw string, timeout time.Duration) CheckResult {
 		OK:      true,
 		Latency: time.Since(start).Round(time.Millisecond).String(),
 	}
+}
+
+func dialHost(u *url.URL) (string, error) {
+	if u.Host == "" {
+		return "", fmt.Errorf("missing host")
+	}
+	if u.Port() != "" {
+		return net.JoinHostPort(u.Hostname(), u.Port()), nil
+	}
+	port := ""
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		port = "80"
+	case "https":
+		port = "443"
+	case "socks", "socks5", "socks5h":
+		port = "1080"
+	default:
+		return "", fmt.Errorf("missing port in address %s", u.Host)
+	}
+	return net.JoinHostPort(u.Hostname(), port), nil
 }
 
 func httpCheck(proxyURL, probeURL string, timeout time.Duration) CheckResult {

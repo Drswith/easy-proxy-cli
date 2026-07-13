@@ -163,9 +163,7 @@ func (c Config) withDefaults() Config {
 		if p.HTTPS == "" {
 			p.HTTPS = p.HTTP
 		}
-		if p.NoProxy == "" {
-			p.NoProxy = d.Profiles["default"].NoProxy
-		}
+		// Preserve intentional empty no_proxy (do not refill from defaults).
 		c.Profiles[name] = p
 	}
 	return c

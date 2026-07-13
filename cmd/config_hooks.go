@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/config"
 	"github.com/drswith/easy-proxy-cli/internal/output"
 	"github.com/spf13/cobra"
@@ -133,7 +134,7 @@ func newConfigCmd() *cobra.Command {
 				case "no_proxy", "noproxy":
 					p.NoProxy = value
 				default:
-					return fmt.Errorf("unknown key %q (http|https|socks|no_proxy)", key)
+					return apperr.Misconfigf("unknown key %q (http|https|socks|no_proxy)", key)
 				}
 				cfg.Profiles[name] = p
 				if err := config.Save(cfg); err != nil {
