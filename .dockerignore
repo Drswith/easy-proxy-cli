@@ -1,0 +1,8 @@
+bin/
+dist/
+.git/
+.idea/
+.vscode/
+*.test
+coverage.out
+easy-proxy-cli-test*

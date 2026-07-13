@@ -255,7 +255,7 @@ func newExecCmd() *cobra.Command {
 			c.Stderr = os.Stderr
 			if err := c.Run(); err != nil {
 				if code := exitCode(err); code >= 0 {
-					os.Exit(code)
+					processExit(code)
 				}
 				return fmt.Errorf("exec %q: %w", args[0], err)
 			}
