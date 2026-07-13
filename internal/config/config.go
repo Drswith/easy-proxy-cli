@@ -12,17 +12,17 @@ import (
 )
 
 const (
-	DirName      = ".easy-proxy"
-	ConfigName   = "config.toml"
+	DirName       = ".easy-proxy"
+	ConfigName    = "config.toml"
 	ConfigVersion = 1
 )
 
 // Config is the on-disk ~/.easy-proxy/config.toml schema.
 type Config struct {
-	Version        int                 `toml:"version" json:"version"`
-	DefaultProfile string              `toml:"default_profile" json:"default_profile"`
-	Profiles       map[string]Profile  `toml:"profiles" json:"profiles"`
-	Extras         Extras              `toml:"extras" json:"extras"`
+	Version        int                `toml:"version" json:"version"`
+	DefaultProfile string             `toml:"default_profile" json:"default_profile"`
+	Profiles       map[string]Profile `toml:"profiles" json:"profiles"`
+	Extras         Extras             `toml:"extras" json:"extras"`
 }
 
 // Profile describes one named proxy endpoint set.
@@ -35,9 +35,9 @@ type Profile struct {
 
 // Extras toggles language/runtime sugar.
 type Extras struct {
-	MirrorUppercase   bool   `toml:"mirror_uppercase" json:"mirror_uppercase"`
-	NodeUseEnvProxy   bool   `toml:"node_use_env_proxy" json:"node_use_env_proxy"`
-	NodeExtraCACerts  string `toml:"node_extra_ca_certs" json:"node_extra_ca_certs,omitempty"`
+	MirrorUppercase  bool   `toml:"mirror_uppercase" json:"mirror_uppercase"`
+	NodeUseEnvProxy  bool   `toml:"node_use_env_proxy" json:"node_use_env_proxy"`
+	NodeExtraCACerts string `toml:"node_extra_ca_certs" json:"node_extra_ca_certs,omitempty"`
 }
 
 // Default returns a sensible Clash/V2Ray local mixed-port profile.

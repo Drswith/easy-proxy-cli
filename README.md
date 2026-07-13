@@ -6,28 +6,53 @@
 
 ## 安装
 
-```bash
-# 从源码
-cd /Users/drs/workspaces/personal/easy-proxy-cli
-make install   # 安装到 $(go env GOPATH)/bin/ezp
+### 一键安装（推荐）
 
-# 或本地构建
-make build     # 产出 ./bin/ezp
+macOS / Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/drswith/easy-proxy-cli/main/scripts/install.sh | bash
+```
+
+Windows（PowerShell）：
+
+```powershell
+irm https://raw.githubusercontent.com/drswith/easy-proxy-cli/main/scripts/install.ps1 | iex
+```
+
+安装脚本会：放入 PATH → 写入默认配置 → **自动探测并写入 shell hook**（无需再手敲 `eval`）。
+
+常用选项：
+
+```bash
+# 不改 rc，只装二进制 + 配置
+curl -fsSL .../install.sh | bash -s -- --no-modify-rc
+
+# 只写入指定 shell
+curl -fsSL .../install.sh | bash -s -- --shell zsh --shell bash
+```
+
+### 从源码
+
+```bash
+make install   # → $(go env GOPATH)/bin/ezp 或 GOBIN
+make build     # → ./bin/ezp
 ```
 
 ## 30 秒上手
 
 ```bash
-# 1) 生成默认配置 ~/.easy-proxy/config.toml
-ezp config init
-
-# 2) 安装 shell hook（推荐，只需一次）
-echo 'eval "$(ezp hook zsh)"' >> ~/.zshrc && source ~/.zshrc
-
-# 3) 开关代理（hook 后直接生效）
+# 安装脚本已跑过 setup 时，新开终端后直接：
 ezp on
 ezp status
 ezp off
+
+# 或手动 setup（探测 $SHELL / 已有 rc，幂等写入）
+ezp setup
+ezp setup --explain          # 查看探测策略
+ezp setup --shell zsh
+ezp setup --no-modify-rc     # 只写配置
+ezp setup --uninstall        # 移除 hook 块
 
 # 不装 hook 时：
 eval "$(ezp on --emit)"
@@ -37,13 +62,24 @@ eval "$(ezp off --emit)"
 ezp exec -- curl -I https://www.google.com
 ```
 
+## Shell 探测策略（自研）
+
+不依赖第三方 shell 库。顺序：
+
+1. `$SHELL`，为空则 `getent` / macOS `dscl` 查账户登录 shell（**不**把 `curl|bash` 当成你的日常 shell）
+2. 已存在的 `.zshrc` / `.bashrc` / `.bash_profile` / `.profile` / fish / nushell / PowerShell profile
+3. Windows 额外写入 PowerShell profile；Unix 仅在 profile 已存在时同步
+4. `--shell` 强制指定；`--no-modify-rc` 跳过
+
+支持 hook：`bash` · `zsh` · `sh` · `fish` · `powershell` · `nu`（cmd 请用 `ezp exec`）
+
 ## 为什么需要 hook / eval？
 
 子进程**无法**修改父 shell 的环境变量。因此：
 
 | 方式 | 适用 |
 |------|------|
-| `eval "$(ezp hook zsh)"` 后 `ezp on` | 人类日常 |
+| `ezp setup` 后 `ezp on` | 人类日常（安装脚本默认做） |
 | `eval "$(ezp on --emit)"` | 临时 / 脚本 |
 | `ezp exec -- <cmd>` | AI agent / CI（推荐） |
 
@@ -85,9 +121,10 @@ ezp on --emit --no-node --no-uppercase
 | `ezp env` | 打印解析后的环境变量 |
 | `ezp exec -- …` | 带代理运行子命令 |
 | `ezp doctor` | 探测代理端口是否可达 |
+| `ezp setup` | 写配置 + 探测并安装 shell hook |
 | `ezp config …` | 读写配置 |
 | `ezp profiles` | 列出 profile |
-| `ezp hook <shell>` | 安装 shell 集成 |
+| `ezp hook <shell>` | 打印 hook 脚本（高级） |
 | `ezp schema` | Agent 用机器可读 schema |
 | `ezp completion …` | shell 补全 |
 

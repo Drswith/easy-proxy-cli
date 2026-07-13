@@ -12,9 +12,11 @@ A child process cannot mutate the parent shell environment. Prefer:
 
 1. **`ezp exec -- <cmd> [args...]`** — apply proxy only to the child (best for agents)
 2. **`eval "$(ezp on --emit)"`** — apply to current shell when shell access exists
-3. Shell hook: `eval "$(ezp hook zsh)"` then `ezp on` / `ezp off`
+3. Shell hook via **`ezp setup`** (preferred) or `eval "$(ezp hook zsh)"` then `ezp on` / `ezp off`
 
 Never assume bare `ezp on` without hook/eval has changed the caller's env.
+
+Installers (`scripts/install.sh`, `scripts/install.ps1`) run `ezp setup` automatically unless `--no-modify-rc`.
 
 ## Discoverability
 

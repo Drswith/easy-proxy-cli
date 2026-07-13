@@ -1,4 +1,4 @@
-.PHONY: build install test fmt vet clean
+.PHONY: build install test fmt vet clean release
 
 BINARY := ezp
 OUT := bin/$(BINARY)
@@ -8,10 +8,10 @@ LDFLAGS := -ldflags "-X github.com/drswith/easy-proxy-cli/cmd.version=$(VERSION)
 
 build:
 	mkdir -p bin
-	go build $(LDFLAGS) -o $(OUT) .
+	go build $(LDFLAGS) -o $(OUT) ./cmd/ezp
 
 install:
-	go install $(LDFLAGS) .
+	go install $(LDFLAGS) ./cmd/ezp
 
 test:
 	go test ./...
@@ -23,13 +23,14 @@ vet:
 	go vet ./...
 
 clean:
-	rm -rf bin
+	rm -rf bin dist
 
-# Cross-compile release artifacts
+# Cross-compile release artifacts (consumed by scripts/install.sh / install.ps1)
 release:
 	mkdir -p dist
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 .
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 .
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 .
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 .
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe .
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 ./cmd/ezp
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 ./cmd/ezp
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 ./cmd/ezp
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 ./cmd/ezp
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe ./cmd/ezp
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-arm64.exe ./cmd/ezp

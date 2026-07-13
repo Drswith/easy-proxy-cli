@@ -9,11 +9,11 @@ import (
 )
 
 var (
-	flagJSON   bool
-	flagShell  string
-	flagQuiet  bool
-	version    = "0.1.0"
-	commit     = "dev"
+	flagJSON  bool
+	flagShell string
+	flagQuiet bool
+	version   = "0.1.0"
+	commit    = "dev"
 )
 
 func newRoot() *cobra.Command {
@@ -45,6 +45,7 @@ Designed for AI agents and humans: stable exit codes, --json, schema.`,
 		newEnvCmd(),
 		newExecCmd(),
 		newConfigCmd(),
+		newSetupCmd(),
 		newHookCmd(),
 		newDoctorCmd(),
 		newProfilesCmd(),
