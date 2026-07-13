@@ -94,7 +94,7 @@ ezp() {
     local __a
     for __a in "$@"; do
       case "$__a" in
-        --json|-j|--help|-h|--version)
+        --json|--json=*|-j|-j=*|-j?*|--help|-h|--version)
           "$__ezp_bin" "$@"
           return $?
           ;;
@@ -120,13 +120,13 @@ function ezp
   if test "$cmd" = "on" -o "$cmd" = "off"
     for __a in $argv
       switch $__a
-        case --json -j --help -h --version
+        case --json "--json=*" -j "-j=*" "-j?*" --help -h --version
           $__ezp_bin $argv
           return $status
       end
     end
     set -e argv[1]
-    set -l __ezp_out ($__ezp_bin $cmd --emit $argv | string collect)
+    set -l __ezp_out ($__ezp_bin $cmd --emit --shell fish $argv | string collect)
     set -l __ezp_status $pipestatus[1]
     if test $__ezp_status -ne 0
       return $__ezp_status
@@ -143,10 +143,16 @@ function ezp {
   param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Args)
   $bin = %s
   if ($null -eq $Args) { $Args = @() }
+  function Test-EzpReadonlyFlag([string]$a) {
+    if ($a -in @('--json','-j','--help','-h','--version')) { return $true }
+    if ($a -like '--json=*') { return $true }
+    if ($a -like '-j=*') { return $true }
+    if ($a -match '^-j.') { return $true }
+    return $false
+  }
   if ($Args.Count -ge 1 -and ($Args[0] -eq 'on' -or $Args[0] -eq 'off')) {
-    $readonly = @('--json','-j','--help','-h','--version')
     foreach ($a in $Args) {
-      if ($readonly -contains $a) {
+      if (Test-EzpReadonlyFlag $a) {
         & $bin @Args
         if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
         return
@@ -157,7 +163,7 @@ function ezp {
     if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $raw = & $bin $cmd --emit @rest 2>&1
+    $raw = & $bin $cmd --emit --shell powershell @rest 2>&1
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
     $text = ($raw | ForEach-Object { "$_" }) -join [Environment]::NewLine
@@ -168,53 +174,45 @@ function ezp {
     if ($text) { Invoke-Expression $text }
     return
   }
+  if ($Args.Count -ge 1 -and $Args[0] -eq 'exec') {
+    # PowerShell consumes a literal "--" during binding; re-insert for Cobra.
+    $rest = @()
+    if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
+    & $bin exec -- @rest
+    return
+  }
   & $bin @Args
-  if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
 }
 `, psQuote(binPath)), nil
 	case Nu:
-		// Nushell: parse POSIX export/unset lines from `ezp on|off --emit`.
+		// Prefer --json so values with quotes/special chars stay structured.
 		return fmt.Sprintf(`# easy-proxy-cli shell hook (nushell)
 def --env --wrapped ezp [...args: string] {
   let bin = %s
   let cmd = ($args | get 0? | default "")
+  let is_readonly = {|a|
+    ($a == "--json") or ($a == "-j") or ($a == "--help") or ($a == "-h") or ($a == "--version") or ($a | str starts-with "--json=") or ($a | str starts-with "-j=") or (($a | str starts-with "-j") and (($a | str length) > 2))
+  }
   if $cmd == "on" or $cmd == "off" {
-    let readonly = ["--json" "-j" "--help" "-h" "--version"]
-    if ($args | any {|a| $a in $readonly}) {
-      ^$bin ...$args
-      return
+    if ($args | any $is_readonly) {
+      return (^$bin ...$args)
     }
     let rest = ($args | skip 1)
-    let result = (^$bin $cmd --emit --shell sh ...$rest | complete)
+    let result = (^$bin $cmd --json ...$rest | complete)
     if $result.exit_code != 0 {
       error make {msg: $"ezp ($cmd) failed", label: {text: ($result.stderr | str trim)}}
     }
-    let script = $result.stdout
-    mut map = {}
-    for line in ($script | lines) {
-      let t = ($line | str trim)
-      if ($t | str starts-with "export ") {
-        let body = ($t | str replace "export " "")
-        let eq = ($body | str index-of "=")
-        if $eq != null {
-          let key = ($body | str substring 0..<$eq)
-          mut val = ($body | str substring ($eq + 1)..)
-          if ($val | str starts-with "'") and ($val | str ends-with "'") {
-            $val = ($val | str substring 1..<($val | str length | $in - 1))
-          }
-          $map = ($map | upsert $key $val)
-        }
-      } else if ($t | str starts-with "unset ") {
-        let key = ($t | str replace "unset " "" | str trim)
-        hide-env -i $key
+    let data = ($result.stdout | from json)
+    if $cmd == "on" {
+      load-env $data.env
+    } else {
+      for k in $data.unset {
+        hide-env -i $k
       }
-    }
-    if not ($map | is-empty) {
-      load-env $map
     }
     return
   }
-  ^$bin ...$args
+  return (^$bin ...$args)
 }
 `, nuQuote(binPath)), nil
 	default:

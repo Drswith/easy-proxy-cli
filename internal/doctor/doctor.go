@@ -120,6 +120,12 @@ func httpCheck(proxyURL, probeURL string, timeout time.Duration) CheckResult {
 		if err != nil {
 			return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
 		}
+	} else if resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented {
+		_ = resp.Body.Close()
+		resp, err = do(http.MethodGet)
+		if err != nil {
+			return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
+		}
 	}
 	defer resp.Body.Close()
 	// 407 means the proxy rejected the request (auth required) — not healthy.
