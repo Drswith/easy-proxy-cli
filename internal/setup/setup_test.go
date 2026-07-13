@@ -11,14 +11,20 @@ import (
 
 func TestUpsertAndStripBlock(t *testing.T) {
 	block := MarkerBegin + "\nexport FOO=1\n" + MarkerEnd + "\n"
-	next, changed := upsertBlock("existing\n", block)
+	next, changed, err := upsertBlock("existing\n", block)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !changed {
 		t.Fatal("expected change")
 	}
 	if !strings.Contains(next, MarkerBegin) || !strings.Contains(next, "existing") {
 		t.Fatalf("bad content: %q", next)
 	}
-	_, changed2 := upsertBlock(next, block)
+	_, changed2, err := upsertBlock(next, block)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if changed2 {
 		t.Fatal("idempotent write should not change")
 	}
@@ -71,6 +77,10 @@ func TestIncompleteBlockRefused(t *testing.T) {
 	_, _, err := stripBlock(broken)
 	if err == nil {
 		t.Fatal("expected incomplete block error")
+	}
+	_, _, err = upsertBlock(broken, MarkerBegin+"\nok\n"+MarkerEnd+"\n")
+	if err == nil {
+		t.Fatal("upsert should refuse incomplete block")
 	}
 }
 

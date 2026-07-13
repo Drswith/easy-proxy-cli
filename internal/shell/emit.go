@@ -67,7 +67,8 @@ func EmitUnset(kind Kind, keys []string) string {
 	for _, k := range keys {
 		switch kind {
 		case Fish:
-			fmt.Fprintf(&b, "set -e %s;\n", k)
+			// fish `set -e` returns 4 when the var is missing; ignore so off stays success.
+			fmt.Fprintf(&b, "set -e %s; or true\n", k)
 		case PowerShell:
 			fmt.Fprintf(&b, "Remove-Item Env:%s -ErrorAction SilentlyContinue\n", k)
 		case Cmd:
@@ -75,6 +76,9 @@ func EmitUnset(kind Kind, keys []string) string {
 		default:
 			fmt.Fprintf(&b, "unset %s\n", k)
 		}
+	}
+	if kind == Fish && len(keys) > 0 {
+		b.WriteString("true\n")
 	}
 	return b.String()
 }
@@ -125,11 +129,11 @@ __ezp_scan() {
             __ezp_rest="$(printf '%%s' "$__ezp_rest" | cut -c2-)"
             case "$__ezp_c" in
               q)
-                case "$__ezp_rest" in =*) __ezp_rest= ;; esac
+                case "$__ezp_rest" in [=]*) __ezp_rest= ;; esac
                 ;;
               j)
                 case "$__ezp_rest" in
-                  =*)
+                  [=]*)
                     __ezp_v="${__ezp_rest#=}"; __ezp_rest=
                     if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
                     ;;
@@ -181,7 +185,7 @@ __ezp_scan() {
                 ;;
               j)
                 case "$__ezp_rest" in
-                  =*)
+                  [=]*)
                     __ezp_v="${__ezp_rest#=}"; __ezp_rest=
                     if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
                     ;;
@@ -189,7 +193,7 @@ __ezp_scan() {
                 esac
                 ;;
               q)
-                case "$__ezp_rest" in =*) __ezp_rest= ;; esac
+                case "$__ezp_rest" in [=]*) __ezp_rest= ;; esac
                 ;;
               h) __ezp_help=1 ;;
               *) ;;
@@ -772,9 +776,16 @@ def --env --wrapped ezp [...args: string] {
     {mode: $mode, cmd_idx: $cmd_idx, cmd: $cmd}
   }
   def entries_to_record [entries: list] {
+    # Nushell env is case-insensitive; prefer lowercase proxy keys so curl sees http_proxy.
+    let prefer_lower = ["http_proxy" "https_proxy" "all_proxy" "no_proxy"]
     mut rec = {}
     for e in $entries {
-      $rec = ($rec | upsert $e.key $e.value)
+      let k = $e.key
+      let lk = ($k | str downcase)
+      if $lk in $prefer_lower {
+        if $k != $lk { continue }
+      }
+      $rec = ($rec | upsert $k $e.value)
     }
     $rec
   }

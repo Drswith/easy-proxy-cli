@@ -20,6 +20,7 @@ func newConfigCmd() *cobra.Command {
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create default config if missing",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			force, _ := cmd.Flags().GetBool("force")
 			path, err := config.Path()
@@ -50,6 +51,7 @@ func newConfigCmd() *cobra.Command {
 		&cobra.Command{
 			Use:   "path",
 			Short: "Print config file path",
+			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				p, err := config.Path()
 				if err != nil {
@@ -65,6 +67,7 @@ func newConfigCmd() *cobra.Command {
 		&cobra.Command{
 			Use:   "show",
 			Short: "Show current config (creates default if missing)",
+			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cfg, err := config.LoadOrCreate()
 				if err != nil {
@@ -199,6 +202,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check whether the configured proxy is reachable",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.LoadOrCreate()
 			if err != nil {
@@ -256,6 +260,7 @@ func newProfilesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "profiles",
 		Short: "List configured profiles",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.LoadOrCreate()
 			if err != nil {
@@ -284,6 +289,7 @@ func newSchemaCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "schema",
 		Short: "Print machine-readable command/config schema (for AI agents)",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			schema := map[string]any{
 				"name":        "ezp",

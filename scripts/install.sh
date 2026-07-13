@@ -88,10 +88,16 @@ download() {
 }
 
 resolve_latest_tag() {
-  need_cmd curl
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-    | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' \
-    | head -n1
+  local tmp tag
+  tmp="$(mktemp)"
+  if ! download "https://api.github.com/repos/${REPO}/releases/latest" "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  tag="$(sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp" | head -n1)"
+  rm -f "$tmp"
+  [ -n "$tag" ] || return 1
+  printf '%s\n' "$tag"
 }
 
 install_from_release() {

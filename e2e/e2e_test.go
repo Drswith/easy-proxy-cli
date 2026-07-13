@@ -119,49 +119,113 @@ func TestE2ECoreFlow(t *testing.T) {
 	}
 }
 
-func TestE2ESetupHookBash(t *testing.T) {
+func TestE2ESetupHookShells(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("bash hook e2e is unix")
-	}
-	home := t.TempDir()
-	cfg := t.TempDir()
-	bashrc := filepath.Join(home, ".bashrc")
-	if err := os.WriteFile(bashrc, []byte("# base\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	env := []string{
-		"HOME=" + home,
-		"EASY_PROXY_HOME=" + cfg,
-		"SHELL=/bin/bash",
+		t.Skip("unix shell hook e2e")
 	}
 
-	_, stderr, err := run(t, env, "setup", "--shell", "bash", "--bin", bin())
-	if err != nil {
-		t.Fatalf("setup: %v %s", err, stderr)
+	type shellCase struct {
+		name   string
+		shell  string // ezp setup --shell
+		interp string // interpreter to run
+		rcRel  string
+		source string // how to load the rc in the interpreter
+		skipIf string // optional binary that must exist
 	}
-	data, err := os.ReadFile(bashrc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "easy-proxy-cli") {
-		t.Fatalf("bashrc not patched: %s", data)
+	cases := []shellCase{
+		{name: "bash", shell: "bash", interp: "bash", rcRel: ".bashrc", source: `source "$HOME/.bashrc"`},
+		{name: "dash", shell: "sh", interp: "dash", rcRel: ".profile", source: `. "$HOME/.profile"`, skipIf: "dash"},
+		{name: "zsh", shell: "zsh", interp: "zsh", rcRel: ".zshrc", source: `source "$HOME/.zshrc"`, skipIf: "zsh"},
+		{name: "fish", shell: "fish", interp: "fish", rcRel: ".config/fish/config.fish", source: `source "$HOME/.config/fish/config.fish"`, skipIf: "fish"},
 	}
 
-	// Simulate shell: source bashrc then call ezp on via the function.
-	script := `
-set -e
-source "$HOME/.bashrc"
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipIf != "" {
+				if _, err := exec.LookPath(tc.skipIf); err != nil {
+					t.Skipf("%s not installed", tc.skipIf)
+				}
+			}
+			home := t.TempDir()
+			cfg := t.TempDir()
+			rc := filepath.Join(home, tc.rcRel)
+			if err := os.MkdirAll(filepath.Dir(rc), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(rc, []byte("# base\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			env := []string{
+				"HOME=" + home,
+				"EASY_PROXY_HOME=" + cfg,
+				"SHELL=" + tc.interp,
+			}
+			_, stderr, err := run(t, env, "setup", "--shell", tc.shell, "--bin", bin())
+			if err != nil {
+				t.Fatalf("setup: %v %s", err, stderr)
+			}
+			data, err := os.ReadFile(rc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), "easy-proxy-cli") {
+				t.Fatalf("rc not patched: %s", data)
+			}
+
+			var script string
+			switch tc.name {
+			case "fish":
+				script = tc.source + `
 ezp on >/dev/null
+test -n "$http_proxy"
+ezp -q on >/dev/null
+test -n "$http_proxy"
+ezp off >/dev/null
+not set -q http_proxy
+ezp on --json >/dev/null
+`
+			case "zsh":
+				script = `
+set -e
+` + tc.source + `
+ezp on >/dev/null
+test -n "$http_proxy"
+ezp -q on >/dev/null
+test -n "$http_proxy"
+ezp on -qj=false >/dev/null
 test -n "$http_proxy"
 ezp off >/dev/null
 test -z "${http_proxy:-}"
+out="$(ezp on --json)"
+print -r -- "$out" | grep -q '"key"'
 `
-	cmd := exec.Command("bash", "-lc", script)
-	cmd.Env = append(os.Environ(), env...)
-	cmd.Dir = home
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("bash hook: %v\n%s", err, out)
+			default: // bash, dash
+				script = `
+set -e
+` + tc.source + `
+ezp on >/dev/null
+test -n "$http_proxy"
+ezp -q on >/dev/null
+test -n "$http_proxy"
+ezp on -qj=false >/dev/null
+test -n "$http_proxy"
+ezp off >/dev/null
+test -z "${http_proxy:-}"
+out="$(ezp on --json)"
+printf '%s\n' "$out" | grep -q '"key"'
+`
+			}
+			cmd := exec.Command(tc.interp, "-c", script)
+			if tc.name == "zsh" {
+				cmd = exec.Command(tc.interp, "-fc", script)
+			}
+			cmd.Env = append(os.Environ(), env...)
+			cmd.Dir = home
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("%s hook: %v\n%s", tc.name, err, out)
+			}
+		})
 	}
 }
 
