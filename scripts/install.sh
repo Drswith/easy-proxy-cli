@@ -98,17 +98,17 @@ install_from_release() {
   local os arch tag base url tmp asset
   os="$(detect_os)"
   arch="$(detect_arch)"
-  tag="$VERSION"
-  if [ "$tag" = "latest" ]; then
-    tag="$(resolve_latest_tag || true)"
-    [ -n "$tag" ] || return 1
-  fi
-  # Asset naming matches Makefile release targets: ezp-darwin-arm64, etc.
-  asset="${BIN_NAME}-${os}-${arch}"
-  base="https://github.com/${REPO}/releases/download/${tag}"
   if [ -n "${EZP_BIN_URL:-}" ]; then
     url="$EZP_BIN_URL"
   else
+    tag="$VERSION"
+    if [ "$tag" = "latest" ]; then
+      tag="$(resolve_latest_tag || true)"
+      [ -n "$tag" ] || return 1
+    fi
+    # Asset naming matches Makefile release targets: ezp-darwin-arm64, etc.
+    asset="${BIN_NAME}-${os}-${arch}"
+    base="https://github.com/${REPO}/releases/download/${tag}"
     url="${base}/${asset}"
   fi
 

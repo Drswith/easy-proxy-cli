@@ -18,8 +18,11 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `${1-}`) {
 		t.Fatalf("hook must be nounset-safe:\n%s", script)
 	}
-	if !strings.Contains(script, `--json=*`) {
-		t.Fatalf("hook must recognize --json= forms:\n%s", script)
+	if !strings.Contains(script, `--json=false`) {
+		t.Fatalf("hook must treat --json=false as non-readonly:\n%s", script)
+	}
+	if !strings.Contains(script, `*j*)`) {
+		t.Fatalf("hook must detect -qj style shorts:\n%s", script)
 	}
 }
 
@@ -38,8 +41,11 @@ func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
 	if !strings.Contains(ps, "--shell powershell") {
 		t.Fatalf("powershell hook must pass --shell powershell:\n%s", ps)
 	}
-	if !strings.Contains(ps, "exec --") {
-		t.Fatalf("powershell hook must re-insert exec --:\n%s", ps)
+	if !strings.Contains(ps, "Get-EzpExecForward") {
+		t.Fatalf("powershell hook must place -- after exec flags:\n%s", ps)
+	}
+	if !strings.Contains(ps, `'^--json=(?i:false|0|f)$'`) {
+		t.Fatalf("powershell hook must reject --json=false as readonly:\n%s", ps)
 	}
 }
 
