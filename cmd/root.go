@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/output"
@@ -40,6 +41,9 @@ Designed for AI agents and humans: stable exit codes, --json, schema.`,
 	root.PersistentFlags().BoolVarP(&flagJSON, "json", "j", false, "machine-readable JSON on stdout")
 	root.PersistentFlags().StringVar(&flagShell, "shell", "", "shell dialect: bash|zsh|sh|fish|powershell|cmd (auto for emit)")
 	root.PersistentFlags().BoolVarP(&flagQuiet, "quiet", "q", false, "suppress human hints on stderr")
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		return apperr.Misconfig(err)
+	})
 
 	root.AddCommand(
 		newOnCmd(),
@@ -71,7 +75,26 @@ func ExecuteArgs(args []string) error {
 	resetFlags()
 	root := newRoot()
 	root.SetArgs(args)
-	return root.Execute()
+	return classifyCLIError(root.Execute())
+}
+
+func classifyCLIError(err error) error {
+	if err == nil || apperr.IsMisconfig(err) {
+		return err
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "unknown flag"),
+		strings.Contains(msg, "unknown shorthand"),
+		strings.Contains(msg, "unknown command"),
+		strings.Contains(msg, "invalid argument"),
+		strings.Contains(msg, "accepts "),
+		strings.Contains(msg, "requires "),
+		strings.Contains(msg, "arg(s)"):
+		return apperr.Misconfig(err)
+	default:
+		return err
+	}
 }
 
 func exitCodeFor(err error) int {

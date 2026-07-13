@@ -85,6 +85,19 @@ func TestMisconfigExitCode(t *testing.T) {
 	}
 }
 
+func TestCobraUsageIsMisconfig(t *testing.T) {
+	err := cmd.ExecuteArgs([]string{"on", "--not-a-real-flag"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !apperr.IsMisconfig(err) {
+		t.Fatalf("want misconfig, got %v", err)
+	}
+	if code := cmd.ExitCodeFor(err); code != output.ExitMisconfig {
+		t.Fatalf("exit=%d", code)
+	}
+}
+
 func TestSchemaJSON(t *testing.T) {
 	out, _, err := capture(t, "schema")
 	if err != nil {

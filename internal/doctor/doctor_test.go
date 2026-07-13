@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,5 +70,37 @@ func TestHTTPViaProxy(t *testing.T) {
 	report := doctor.Run(proxy.URL, "", upstream.URL, time.Second)
 	if !report.OK {
 		t.Fatalf("report=%+v", report)
+	}
+}
+
+func TestHTTPViaProxyRejects407(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusProxyAuthRequired)
+	}))
+	proxy.Listener = ln
+	proxy.Start()
+	defer proxy.Close()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	report := doctor.Run(proxy.URL, "", upstream.URL, time.Second)
+	if report.OK {
+		t.Fatalf("407 should not be healthy: %+v", report)
+	}
+	found := false
+	for _, c := range report.Checks {
+		if c.Name == "https_via_proxy" && !c.OK && strings.Contains(c.Error, "407") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected https_via_proxy 407 failure: %+v", report.Checks)
 	}
 }
