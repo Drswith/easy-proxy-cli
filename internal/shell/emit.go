@@ -91,7 +91,9 @@ ezp() {
   local cmd="$1"
   if [ "$cmd" = "on" ] || [ "$cmd" = "off" ]; then
     shift
-    eval "$("$__ezp_bin" "$cmd" --emit "$@")"
+    local __ezp_out
+    __ezp_out="$("$__ezp_bin" "$cmd" --emit "$@")" || return $?
+    eval "$__ezp_out"
     return $?
   fi
   "$__ezp_bin" "$@"
@@ -104,7 +106,12 @@ function ezp
   set -l cmd $argv[1]
   if test "$cmd" = "on" -o "$cmd" = "off"
     set -e argv[1]
-    eval ($__ezp_bin $cmd --emit $argv | string collect)
+    set -l __ezp_out ($__ezp_bin $cmd --emit $argv | string collect)
+    set -l __ezp_status $pipestatus[1]
+    if test $__ezp_status -ne 0
+      return $__ezp_status
+    end
+    eval $__ezp_out
     return $status
   end
   $__ezp_bin $argv
@@ -119,7 +126,9 @@ function ezp {
     $cmd = $Args[0]
     $rest = @()
     if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
-    Invoke-Expression (& $bin $cmd --emit @rest | Out-String)
+    $script = & $bin $cmd --emit @rest 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) { return $LASTEXITCODE }
+    Invoke-Expression $script
     return
   }
   & $bin @Args
@@ -133,7 +142,11 @@ def --env --wrapped ezp [...args: string] {
   let cmd = ($args | get 0? | default "")
   if $cmd == "on" or $cmd == "off" {
     let rest = ($args | skip 1)
-    let script = (^$bin $cmd --emit --shell sh ...$rest)
+    let result = (^$bin $cmd --emit --shell sh ...$rest | complete)
+    if $result.exit_code != 0 {
+      error make {msg: $"ezp ($cmd) failed", label: {text: ($result.stderr | str trim)}}
+    }
+    let script = $result.stdout
     mut map = {}
     for line in ($script | lines) {
       let t = ($line | str trim)

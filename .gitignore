@@ -3,6 +3,9 @@
 /easy-proxy-cli
 /bin/
 /dist/
+
+# CodeGraph local index
+.codegraph/
 *.exe
 *.exe~
 *.dll

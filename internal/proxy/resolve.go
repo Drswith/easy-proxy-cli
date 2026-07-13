@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/config"
 )
 
@@ -67,17 +68,17 @@ func Resolve(cfg config.Config, opt ResolveOptions) (Resolved, error) {
 	switch mode {
 	case "mixed", "http", "socks":
 	default:
-		return Resolved{}, fmt.Errorf("invalid mode %q (want mixed|http|socks)", mode)
+		return Resolved{}, apperr.Misconfigf("invalid mode %q (want mixed|http|socks)", mode)
 	}
 
 	if err := validateURL(httpURL, "http"); err != nil && mode != "socks" {
-		return Resolved{}, err
+		return Resolved{}, apperr.Misconfig(err)
 	}
 	if err := validateURL(httpsURL, "https"); err != nil && mode != "socks" {
-		return Resolved{}, err
+		return Resolved{}, apperr.Misconfig(err)
 	}
 	if err := validateURL(socksURL, "socks"); err != nil && mode != "http" {
-		return Resolved{}, err
+		return Resolved{}, apperr.Misconfig(err)
 	}
 
 	env := EnvMap{}

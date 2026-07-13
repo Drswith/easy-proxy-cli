@@ -208,6 +208,41 @@ func TestE2EDoctorAgainstLocalListener(t *testing.T) {
 	}
 }
 
+func TestE2EBashHookPropagatesFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("bash hook e2e is unix")
+	}
+	home := t.TempDir()
+	cfg := t.TempDir()
+	bashrc := filepath.Join(home, ".bashrc")
+	if err := os.WriteFile(bashrc, []byte("# base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{
+		"HOME=" + home,
+		"EASY_PROXY_HOME=" + cfg,
+		"SHELL=/bin/bash",
+	}
+	_, _, err := run(t, env, "setup", "--shell", "bash", "--bin", bin())
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := `
+set -e
+source "$HOME/.bashrc"
+set +e
+ezp on --profile does-not-exist >/dev/null 2>&1
+status=$?
+test "$status" -ne 0
+`
+	cmd := exec.Command("bash", "-lc", script)
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("hook should propagate failure: %v\n%s", err, out)
+	}
+}
+
 func TestE2EInstallScriptSyntax(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("bash -n")

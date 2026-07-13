@@ -7,6 +7,16 @@ import (
 	"github.com/drswith/easy-proxy-cli/internal/shell"
 )
 
+func TestHookScriptPreservesBinaryStatus(t *testing.T) {
+	script, err := shell.HookScript(shell.Bash, "/usr/bin/ezp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(script, `|| return $?`) {
+		t.Fatalf("hook must return binary status before eval:\n%s", script)
+	}
+}
+
 func TestDetect(t *testing.T) {
 	cases := map[string]shell.Kind{
 		"bash": "bash", "zsh": "zsh", "sh": "sh", "posix": "sh",

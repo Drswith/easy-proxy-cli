@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/drswith/easy-proxy-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -61,7 +62,7 @@ Designed for AI agents and humans: stable exit codes, --json, schema.`,
 func Execute() {
 	if err := ExecuteArgs(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(output.ExitError)
+		os.Exit(exitCodeFor(err))
 	}
 }
 
@@ -72,6 +73,16 @@ func ExecuteArgs(args []string) error {
 	root.SetArgs(args)
 	return root.Execute()
 }
+
+func exitCodeFor(err error) int {
+	if apperr.IsMisconfig(err) {
+		return output.ExitMisconfig
+	}
+	return output.ExitError
+}
+
+// ExitCodeFor maps an error to the process exit code (exported for tests).
+func ExitCodeFor(err error) int { return exitCodeFor(err) }
 
 func resetFlags() {
 	flagJSON = false
