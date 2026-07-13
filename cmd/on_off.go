@@ -72,6 +72,7 @@ func newOnCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "on",
 		Short: "Enable proxy env (prints shell exports; use --emit with eval/hook)",
+		Args:  cobra.NoArgs,
 		Long: `Resolve proxy settings and emit shell export statements on stdout.
 
 Examples:
@@ -129,6 +130,7 @@ func newOffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "off",
 		Short: "Disable proxy env (prints shell unset statements)",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			emit, _ := cmd.Flags().GetBool("emit")
 			noNode, _ := cmd.Flags().GetBool("no-node")
@@ -170,6 +172,7 @@ func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show currently set proxy-related environment variables",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cur := proxy.CurrentFromOS()
 			w := out()
@@ -197,6 +200,7 @@ func newEnvCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "env",
 		Short: "Print resolved env without applying (export|json|dotenv)",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format, _ := cmd.Flags().GetString("format")
 			cfg, err := config.LoadOrCreate()

@@ -98,6 +98,35 @@ func TestCobraUsageIsMisconfig(t *testing.T) {
 	}
 }
 
+func TestNoArgsRejectExtraPositional(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EASY_PROXY_HOME", dir)
+	for _, args := range [][]string{
+		{"on", "typo"},
+		{"off", "typo"},
+		{"status", "typo"},
+		{"env", "typo"},
+		{"doctor", "typo"},
+		{"profiles", "typo"},
+		{"schema", "typo"},
+		{"setup", "typo"},
+		{"config", "init", "typo"},
+		{"config", "path", "typo"},
+		{"config", "show", "typo"},
+	} {
+		err := cmd.ExecuteArgs(args)
+		if err == nil {
+			t.Fatalf("expected error for %v", args)
+		}
+		if !apperr.IsMisconfig(err) {
+			t.Fatalf("%v want misconfig, got %v", args, err)
+		}
+		if code := cmd.ExitCodeFor(err); code != output.ExitMisconfig {
+			t.Fatalf("%v exit=%d", args, code)
+		}
+	}
+}
+
 func TestAppOptionErrorsAreMisconfig(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("EASY_PROXY_HOME", dir)

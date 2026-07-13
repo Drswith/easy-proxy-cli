@@ -172,7 +172,10 @@ func writeHook(path, block string, dryRun, create bool) (string, error) {
 	if existed {
 		content = string(data)
 	}
-	next, changed := upsertBlock(content, block)
+	next, changed, err := upsertBlock(content, block)
+	if err != nil {
+		return "skipped", err
+	}
 	if !changed {
 		return "skipped", nil
 	}
@@ -230,10 +233,15 @@ func removeHook(path string, dryRun bool) (string, error) {
 	return "removed", nil
 }
 
-func upsertBlock(content, block string) (string, bool) {
+func upsertBlock(content, block string) (string, bool, error) {
+	if strings.Contains(content, MarkerBegin) {
+		if _, _, ok := extractBlock(content); !ok {
+			return content, false, fmt.Errorf("incomplete easy-proxy-cli block (missing end marker); refusing to modify")
+		}
+	}
 	if oldBefore, oldBlock, ok := extractBlock(content); ok {
 		if oldBlock == block {
-			return content, false
+			return content, false, nil
 		}
 		// replace old block in-place
 		start := strings.Index(content, MarkerBegin)
@@ -244,13 +252,13 @@ func upsertBlock(content, block string) (string, bool) {
 		if end < len(content) {
 			next += content[end:]
 		}
-		return next, true
+		return next, true, nil
 	}
 	trimmed := strings.TrimRight(content, "\n")
 	if trimmed == "" {
-		return block, true
+		return block, true, nil
 	}
-	return trimmed + "\n\n" + block, true
+	return trimmed + "\n\n" + block, true, nil
 }
 
 func stripBlock(content string) (string, bool, error) {

@@ -30,6 +30,9 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `__ezp_bool_false`) {
 		t.Fatalf("hook must parse bool assignments:\n%s", script)
 	}
+	if !strings.Contains(script, `[=]*`) {
+		t.Fatalf("hook must use zsh-safe [=]* patterns:\n%s", script)
+	}
 }
 
 func TestPosixHookIsDashSafe(t *testing.T) {
@@ -99,6 +102,9 @@ func TestNuHookUsesJSON(t *testing.T) {
 	if !strings.Contains(script, "entries_to_record") {
 		t.Fatalf("nu hook must load env entries:\n%s", script)
 	}
+	if !strings.Contains(script, "prefer_lower") || !strings.Contains(script, "http_proxy") {
+		t.Fatalf("nu hook must prefer lowercase proxy keys:\n%s", script)
+	}
 	if !strings.Contains(script, "def scan") {
 		t.Fatalf("nu hook must scan globals before on/off:\n%s", script)
 	}
@@ -148,8 +154,11 @@ func TestEmitExportAndUnset(t *testing.T) {
 	if !strings.Contains(shell.EmitUnset(shell.Posix, keys), "unset http_proxy") {
 		t.Fatal("posix unset")
 	}
-	if !strings.Contains(shell.EmitUnset(shell.Fish, keys), "set -e http_proxy") {
+	if !strings.Contains(shell.EmitUnset(shell.Fish, keys), "set -e http_proxy; or true") {
 		t.Fatal("fish unset")
+	}
+	if !strings.Contains(shell.EmitUnset(shell.Fish, keys), "true\n") {
+		t.Fatal("fish unset must end with true")
 	}
 	if !strings.Contains(shell.EmitUnset(shell.PowerShell, keys), "Remove-Item Env:http_proxy") {
 		t.Fatal("ps unset")

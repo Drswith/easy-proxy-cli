@@ -13,6 +13,7 @@ func newSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Install config + shell hooks (detects $SHELL and existing rc files)",
+		Args:  cobra.NoArgs,
 		Long: `Install default config and inject idempotent shell hooks into rc/profile files.
 
 Detection policy (see also: ezp setup --explain):
