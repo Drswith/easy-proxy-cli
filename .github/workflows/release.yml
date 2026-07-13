@@ -1,0 +1,93 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0); empty uses latest tag on ref"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build & publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="v0.0.0-dev"
+          fi
+          COMMIT="$(git rev-parse --short HEAD)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "Building ${VERSION} (${COMMIT})"
+
+      - name: Run tests
+        run: |
+          go vet ./...
+          go test ./internal/... ./cmd/... ./e2e/... -count=1
+
+      - name: Cross-compile
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          COMMIT: ${{ steps.ver.outputs.commit }}
+        shell: bash
+        run: |
+          mkdir -p dist
+          LDFLAGS="-s -w -X github.com/drswith/easy-proxy-cli/cmd.version=${VERSION#v} -X github.com/drswith/easy-proxy-cli/cmd.commit=${COMMIT}"
+          build() {
+            local goos="$1" goarch="$2" out="$3"
+            echo "-> ${out}"
+            GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
+              go build -trimpath -ldflags "$LDFLAGS" -o "dist/${out}" ./cmd/ezp
+          }
+          build darwin arm64 ezp-darwin-arm64
+          build darwin amd64 ezp-darwin-amd64
+          build linux  amd64 ezp-linux-amd64
+          build linux  arm64 ezp-linux-arm64
+          build windows amd64 ezp-windows-amd64.exe
+          build windows arm64 ezp-windows-arm64.exe
+          (
+            cd dist
+            sha256sum ezp-* > checksums.txt
+          )
+          ls -la dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/ezp-darwin-arm64
+            dist/ezp-darwin-amd64
+            dist/ezp-linux-amd64
+            dist/ezp-linux-arm64
+            dist/ezp-windows-amd64.exe
+            dist/ezp-windows-arm64.exe
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

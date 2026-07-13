@@ -1,0 +1,31 @@
+services:
+  unit:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    command: ["make", "test-unit"]
+    volumes:
+      - ..:/src
+    working_dir: /src
+
+  e2e:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    command: ["make", "test-e2e"]
+    volumes:
+      - ..:/src
+    working_dir: /src
+    environment:
+      SHELL: /bin/bash
+
+  all:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    command: ["make", "test-all"]
+    volumes:
+      - ..:/src
+    working_dir: /src
+    environment:
+      SHELL: /bin/bash

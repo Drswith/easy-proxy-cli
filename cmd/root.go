@@ -14,6 +14,8 @@ var (
 	flagQuiet bool
 	version   = "0.1.0"
 	commit    = "dev"
+	// processExit is os.Exit by default; tests may override to avoid killing the test binary.
+	processExit = os.Exit
 )
 
 func newRoot() *cobra.Command {
@@ -57,11 +59,24 @@ Designed for AI agents and humans: stable exit codes, --json, schema.`,
 }
 
 func Execute() {
-	root := newRoot()
-	if err := root.Execute(); err != nil {
+	if err := ExecuteArgs(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(output.ExitError)
 	}
+}
+
+// ExecuteArgs runs the CLI with the given args (no process exit). Used by tests.
+func ExecuteArgs(args []string) error {
+	resetFlags()
+	root := newRoot()
+	root.SetArgs(args)
+	return root.Execute()
+}
+
+func resetFlags() {
+	flagJSON = false
+	flagShell = ""
+	flagQuiet = false
 }
 
 func out() output.Writer {

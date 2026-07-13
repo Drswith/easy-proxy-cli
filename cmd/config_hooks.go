@@ -212,6 +212,9 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			probe, _ := cmd.Flags().GetString("url")
+			if probe == "-" {
+				probe = ""
+			}
 			report := runDoctor(resolved.Env["http_proxy"], resolved.Env["all_proxy"], probe)
 			w := out()
 			if flagJSON {
@@ -219,7 +222,7 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				if !report.OK {
-					os.Exit(output.ExitUnavailable)
+					processExit(output.ExitUnavailable)
 				}
 				return nil
 			}
@@ -238,13 +241,13 @@ func newDoctorCmd() *cobra.Command {
 				fmt.Fprintln(os.Stdout, line)
 			}
 			if !report.OK {
-				os.Exit(output.ExitUnavailable)
+				processExit(output.ExitUnavailable)
 			}
 			return nil
 		},
 	}
 	addResolveFlags(cmd)
-	cmd.Flags().String("url", "https://www.google.com", "HTTPS URL to probe via HTTP proxy")
+	cmd.Flags().String("url", "https://www.google.com", "URL to probe via HTTP proxy (use '-' to skip)")
 	return cmd
 }
 

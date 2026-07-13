@@ -1,4 +1,4 @@
-.PHONY: build install test fmt vet clean release
+.PHONY: build install test test-unit test-e2e test-all test-docker fmt vet clean release
 
 BINARY := ezp
 OUT := bin/$(BINARY)
@@ -13,10 +13,22 @@ build:
 install:
 	go install $(LDFLAGS) ./cmd/ezp
 
-test:
-	go test ./...
+test: test-unit
+
+test-unit:
+	go test ./internal/... ./cmd/... -count=1
+
+test-e2e:
+	go test ./e2e/... -count=1 -timeout 5m
+
+test-all: vet test-unit test-e2e
+
+test-docker:
+	chmod +x scripts/test-docker.sh
+	./scripts/test-docker.sh all
 
 fmt:
+	gofmt -w ./cmd ./internal ./e2e
 	go fmt ./...
 
 vet:
@@ -34,3 +46,4 @@ release:
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 ./cmd/ezp
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe ./cmd/ezp
 	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-arm64.exe ./cmd/ezp
+	cd dist && sha256sum $(BINARY)-* > checksums.txt || shasum -a 256 $(BINARY)-* > checksums.txt

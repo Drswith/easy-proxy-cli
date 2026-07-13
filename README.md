@@ -144,6 +144,22 @@ ezp exec -- curl -sI https://example.com
 
 详见 [AGENTS.md](./AGENTS.md)。
 
+## 测试
+
+```bash
+make test-unit          # internal + cmd
+make test-e2e           # 构建二进制并跑端到端
+make test-all           # vet + unit + e2e
+
+# Docker 隔离（本机需 Docker）
+make test-docker
+# 或
+./scripts/test-docker.sh unit|e2e|all
+```
+
+CI：`.github/workflows/ci.yml`（多 OS unit、ubuntu e2e、Docker 隔离）。  
+Release：推送 `v*` tag 触发 `.github/workflows/release.yml`，上传各平台二进制与 checksums。
+
 ## License
 
 MIT
