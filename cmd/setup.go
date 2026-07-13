@@ -57,11 +57,11 @@ After setup, open a new terminal (or source your rc), then: ezp on`,
 				opt.Shells = []string{"cmd"}
 			}
 
-			res, err := setup.Run(opt)
-			if err != nil {
-				return err
+			res, runErr := setup.Run(opt)
+			if printErr := printSetupResult(res); printErr != nil {
+				return printErr
 			}
-			return printSetupResult(res)
+			return runErr
 		},
 	}
 

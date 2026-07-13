@@ -96,7 +96,8 @@ func httpCheck(proxyURL, probeURL string, timeout time.Duration) CheckResult {
 		return CheckResult{Name: "https_via_proxy", Target: probeURL, OK: false, Error: err.Error()}
 	}
 	defer resp.Body.Close()
-	ok := resp.StatusCode > 0 && resp.StatusCode < 500
+	// 407 means the proxy rejected the request (auth required) — not healthy.
+	ok := resp.StatusCode > 0 && resp.StatusCode < 500 && resp.StatusCode != http.StatusProxyAuthRequired
 	msg := ""
 	if !ok {
 		msg = fmt.Sprintf("status %d", resp.StatusCode)

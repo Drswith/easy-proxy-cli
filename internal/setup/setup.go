@@ -104,11 +104,10 @@ func Run(opt Options) (Result, error) {
 				continue
 			}
 			block := wrapBlock(t.Shell, script)
-			create := opt.CreateMissing || t.Source == "shell_env" || t.Source == "explicit" || t.Source == "fallback"
-			if t.Source == "existing_rc" {
-				create = true // file already exists
-			}
-			action, err := writeHook(t.Path, block, opt.DryRun, create || t.Existed)
+			// Only CreateMissing (or an already-existing file) may create/write.
+			// Target Source must not bypass --create-missing=false.
+			create := opt.CreateMissing || t.Existed
+			action, err := writeHook(t.Path, block, opt.DryRun, create)
 			tr.Action = action
 			if err != nil {
 				tr.Error = err.Error()
@@ -118,7 +117,19 @@ func Run(opt Options) (Result, error) {
 	}
 
 	res.Hints = append(res.Hints, reloadHints(targets)...)
+	if err := firstTargetError(res.Targets); err != nil {
+		return res, err
+	}
 	return res, nil
+}
+
+func firstTargetError(targets []TargetResult) error {
+	for _, t := range targets {
+		if t.Error != "" {
+			return fmt.Errorf("%s: %s", t.Target.Path, t.Error)
+		}
+	}
+	return nil
 }
 
 func wrapBlock(kind shell.Kind, script string) string {
@@ -141,7 +152,8 @@ func writeHook(path, block string, dryRun, create bool) (string, error) {
 		return "skipped", err
 	}
 	if !existed && !create {
-		return "skipped", fmt.Errorf("file does not exist (pass --create-missing)")
+		// Soft skip: --create-missing=false deliberately leaves missing rcs alone.
+		return "skipped", nil
 	}
 
 	content := ""

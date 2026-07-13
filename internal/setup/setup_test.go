@@ -62,3 +62,53 @@ func TestWriteHookRoundTrip(t *testing.T) {
 		t.Fatalf("remove action=%s err=%v", action, err)
 	}
 }
+
+func TestCreateMissingFalseDoesNotCreate(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	missing := filepath.Join(home, ".zshrc")
+	res, err := Run(Options{
+		Shells:        []string{"zsh"},
+		BinPath:       "/tmp/fake-ezp",
+		CreateMissing: false,
+		InitConfig:    false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, statErr := os.Stat(missing); !os.IsNotExist(statErr) {
+		t.Fatalf(".zshrc should not be created: %v", statErr)
+	}
+	if len(res.Targets) == 0 {
+		t.Fatal("expected a target")
+	}
+	for _, tr := range res.Targets {
+		if tr.Action != "skipped" {
+			t.Fatalf("action=%s want skipped (target=%+v)", tr.Action, tr)
+		}
+		if tr.Error != "" {
+			t.Fatalf("soft skip should not error: %s", tr.Error)
+		}
+	}
+}
+
+func TestRunReturnsErrorOnTargetFailure(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	// Make .zshrc a directory so writeHook fails.
+	zshrc := filepath.Join(home, ".zshrc")
+	if err := os.Mkdir(zshrc, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Run(Options{
+		Shells:        []string{"zsh"},
+		BinPath:       "/tmp/fake-ezp",
+		CreateMissing: true,
+		InitConfig:    false,
+	})
+	if err == nil {
+		t.Fatal("expected error when target path is a directory")
+	}
+}
