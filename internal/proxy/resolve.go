@@ -196,26 +196,20 @@ func SortedKeys(m map[string]string) []string {
 	return keys
 }
 
-// EnvForJSON returns an env map safe for case-insensitive JSON consumers
-// (e.g. PowerShell ConvertFrom-Json). Proxy vars prefer lowercase keys;
-// uppercase mirrors are omitted when the lowercase form is present.
-func EnvForJSON(env map[string]string) map[string]string {
-	preferLower := map[string]struct{}{
-		"http_proxy": {}, "https_proxy": {}, "all_proxy": {}, "no_proxy": {},
-	}
-	out := make(map[string]string, len(env))
-	for k, v := range env {
-		lk := strings.ToLower(k)
-		if _, ok := preferLower[lk]; ok {
-			if k != lk {
-				if _, hasLower := env[lk]; hasLower {
-					continue
-				}
-				out[lk] = v
-				continue
-			}
-		}
-		out[k] = v
+// EnvEntry is one environment binding for JSON output.
+// A list of entries stays valid under case-insensitive JSON parsers
+// (e.g. PowerShell ConvertFrom-Json) while preserving every key.
+type EnvEntry struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// EnvEntries returns env as a stable key/value list (sorted by key).
+func EnvEntries(env map[string]string) []EnvEntry {
+	keys := SortedKeys(env)
+	out := make([]EnvEntry, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, EnvEntry{Key: k, Value: env[k]})
 	}
 	return out
 }

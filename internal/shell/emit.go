@@ -86,160 +86,364 @@ func HookScript(kind Kind, binPath string) (string, error) {
 	}
 	switch kind {
 	case Bash, Zsh, Posix:
+		// Pure POSIX: top-level helpers + 1-based positional indexing (bash/zsh/dash).
 		return fmt.Sprintf(`# easy-proxy-cli shell hook
-ezp() {
-  local __ezp_bin=%s
-  local cmd="${1-}"
-  # Parse like pflag: value shorts consume the rest (-pj => profile=j), last --json wins.
-  __ezp_should_passthrough() {
-    local json=0 help=0
-    local -a args=("$@")
-    local i=1 a rest c
-    while [ "$i" -lt "${#args[@]}" ]; do
-      a="${args[$i]}"
-      case "$a" in
-        --help|-h|--version) help=1; break ;;
+__ezp_bool_false() {
+  case "$1" in false|FALSE|False|0|f|F) return 0 ;; esac
+  return 1
+}
+# Sets: __ezp_cmd_idx __ezp_cmd __ezp_json __ezp_help __ezp_mode(passthrough|emit|forward)
+__ezp_scan() {
+  __ezp_cmd_idx=0
+  __ezp_cmd=
+  __ezp_json=0
+  __ezp_help=0
+  __ezp_mode=forward
+  __ezp_n=$#
+  __ezp_i=1
+  __ezp_seen_cmd=0
+  while [ "$__ezp_i" -le "$__ezp_n" ]; do
+    eval "__ezp_a=\${$__ezp_i}"
+    if [ "$__ezp_seen_cmd" -eq 0 ]; then
+      case "$__ezp_a" in
+        --help|-h|--version) __ezp_help=1; __ezp_i=$((__ezp_i + 1)); continue ;;
+        --) break ;;
+        --shell) __ezp_i=$((__ezp_i + 2)); continue ;;
+        --shell=*) __ezp_i=$((__ezp_i + 1)); continue ;;
+        --json|-j) __ezp_json=1; __ezp_i=$((__ezp_i + 1)); continue ;;
+        --quiet|-q) __ezp_i=$((__ezp_i + 1)); continue ;;
+        --json=*|-j=*)
+          __ezp_v="${__ezp_a#*=}"
+          if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
+          __ezp_i=$((__ezp_i + 1)); continue ;;
+        --quiet=*|-q=*) __ezp_i=$((__ezp_i + 1)); continue ;;
+        -*)
+          __ezp_rest="${__ezp_a#-}"
+          __ezp_ok=1
+          while [ -n "$__ezp_rest" ]; do
+            __ezp_c="$(printf '%%s' "$__ezp_rest" | cut -c1)"
+            __ezp_rest="$(printf '%%s' "$__ezp_rest" | cut -c2-)"
+            case "$__ezp_c" in
+              q)
+                case "$__ezp_rest" in =*) __ezp_rest= ;; esac
+                ;;
+              j)
+                case "$__ezp_rest" in
+                  =*)
+                    __ezp_v="${__ezp_rest#=}"; __ezp_rest=
+                    if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
+                    ;;
+                  *) __ezp_json=1 ;;
+                esac
+                ;;
+              h) __ezp_help=1 ;;
+              *) __ezp_ok=0; break ;;
+            esac
+          done
+          if [ "$__ezp_ok" -eq 1 ]; then __ezp_i=$((__ezp_i + 1)); continue; fi
+          break
+          ;;
+        on|off)
+          __ezp_seen_cmd=1
+          __ezp_cmd="$__ezp_a"
+          __ezp_cmd_idx=$__ezp_i
+          __ezp_i=$((__ezp_i + 1))
+          continue
+          ;;
+        *) break ;;
+      esac
+    else
+      case "$__ezp_a" in
+        --help|-h|--version) __ezp_help=1; break ;;
         --) break ;;
         --profile|--http|--https|--socks|--no-proxy|--host|--port|--mode|--node-ca|--shell|-p)
-          i=$((i + 2)); continue ;;
+          __ezp_i=$((__ezp_i + 2)); continue ;;
         --profile=*|--http=*|--https=*|--socks=*|--no-proxy=*|--host=*|--port=*|--mode=*|--node-ca=*|--shell=*)
-          i=$((i + 1)); continue ;;
-        --json|-j) json=1; i=$((i + 1)); continue ;;
-        --json=false|--json=FALSE|--json=False|--json=0|--json=f|--json=F|-j=false|-j=FALSE|-j=False|-j=0|-j=f|-j=F)
-          json=0; i=$((i + 1)); continue ;;
-        --json=*|-j=*) json=1; i=$((i + 1)); continue ;;
+          __ezp_i=$((__ezp_i + 1)); continue ;;
+        --json|-j) __ezp_json=1; __ezp_i=$((__ezp_i + 1)); continue ;;
+        --json=*|-j=*)
+          __ezp_v="${__ezp_a#*=}"
+          if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
+          __ezp_i=$((__ezp_i + 1)); continue ;;
         --node|--no-node|--uppercase|--no-uppercase|--quiet|-q|--emit)
-          i=$((i + 1)); continue ;;
-        --node=*|--uppercase=*|--quiet=*|--no-node=*|--no-uppercase=*|--emit=*)
-          i=$((i + 1)); continue ;;
-        --*) i=$((i + 1)); continue ;;
+          __ezp_i=$((__ezp_i + 1)); continue ;;
+        --node=*|--uppercase=*|--quiet=*|--no-node=*|--no-uppercase=*|--emit=*|-q=*)
+          __ezp_i=$((__ezp_i + 1)); continue ;;
+        --*) __ezp_i=$((__ezp_i + 1)); continue ;;
         -*)
-          rest="${a#-}"
-          while [ -n "$rest" ]; do
-            c="$(printf '%%s' "$rest" | cut -c1)"
-            rest="$(printf '%%s' "$rest" | cut -c2-)"
-            case "$c" in
+          __ezp_rest="${__ezp_a#-}"
+          while [ -n "$__ezp_rest" ]; do
+            __ezp_c="$(printf '%%s' "$__ezp_rest" | cut -c1)"
+            __ezp_rest="$(printf '%%s' "$__ezp_rest" | cut -c2-)"
+            case "$__ezp_c" in
               p)
-                if [ -n "$rest" ]; then rest=""; else i=$((i + 1)); fi
+                if [ -n "$__ezp_rest" ]; then __ezp_rest=; else __ezp_i=$((__ezp_i + 1)); fi
                 ;;
-              j) json=1 ;;
-              q|h) ;;
+              j)
+                case "$__ezp_rest" in
+                  =*)
+                    __ezp_v="${__ezp_rest#=}"; __ezp_rest=
+                    if __ezp_bool_false "$__ezp_v"; then __ezp_json=0; else __ezp_json=1; fi
+                    ;;
+                  *) __ezp_json=1 ;;
+                esac
+                ;;
+              q)
+                case "$__ezp_rest" in =*) __ezp_rest= ;; esac
+                ;;
+              h) __ezp_help=1 ;;
               *) ;;
             esac
           done
-          i=$((i + 1)); continue ;;
+          __ezp_i=$((__ezp_i + 1)); continue ;;
         *) break ;;
       esac
-    done
-    [ "$help" -eq 1 ] && return 0
-    [ "$json" -eq 1 ] && return 0
-    return 1
-  }
-  if [ "$cmd" = "on" ] || [ "$cmd" = "off" ]; then
-    if __ezp_should_passthrough "$@"; then
-      "$__ezp_bin" "$@"
-      return $?
     fi
-    shift
-    local __ezp_out
-    __ezp_out="$("$__ezp_bin" "$cmd" --emit "$@")" || return $?
-    eval "$__ezp_out"
+  done
+  if [ "$__ezp_cmd_idx" -eq 0 ]; then
+    __ezp_mode=forward
+    return 0
+  fi
+  if [ "$__ezp_help" -eq 1 ] || [ "$__ezp_json" -eq 1 ]; then
+    __ezp_mode=passthrough
+  else
+    __ezp_mode=emit
+  fi
+}
+ezp() {
+  __ezp_bin=%s
+  __ezp_scan "$@"
+  if [ "$__ezp_mode" = "forward" ] || [ "$__ezp_mode" = "passthrough" ]; then
+    "$__ezp_bin" "$@"
     return $?
   fi
-  "$__ezp_bin" "$@"
+  __ezp_save_n=$#
+  __ezp_i=1
+  while [ "$__ezp_i" -le "$__ezp_save_n" ]; do
+    eval "__ezp_save_$__ezp_i=\${$__ezp_i}"
+    __ezp_i=$((__ezp_i + 1))
+  done
+  __ezp_out=$(
+    set --
+    __ezp_i=1
+    while [ "$__ezp_i" -le "$__ezp_save_n" ]; do
+      eval "__ezp_a=\$__ezp_save_$__ezp_i"
+      if [ "$__ezp_i" -eq "$__ezp_cmd_idx" ]; then
+        set -- "$@" "$__ezp_a" --emit
+      else
+        set -- "$@" "$__ezp_a"
+      fi
+      __ezp_i=$((__ezp_i + 1))
+    done
+    "$__ezp_bin" "$@"
+  ) || return $?
+  eval "$__ezp_out"
+  return $?
 }
 `, shQuote(binPath)), nil
 	case Fish:
 		return fmt.Sprintf(`# easy-proxy-cli shell hook (fish)
-function __ezp_should_passthrough
+function __ezp_bool_false
+  contains -- $argv[1] false FALSE False 0 f F
+end
+
+function __ezp_scan
+  set -g __ezp_cmd_idx 0
+  set -g __ezp_cmd ""
+  set -g __ezp_mode forward
   set -l json 0
   set -l help 0
-  set -l i 2
-  while test $i -le (count $argv)
+  set -l i 1
+  set -l seen_cmd 0
+  set -l n (count $argv)
+  while test $i -le $n
     set -l a $argv[$i]
-    switch $a
-      case --help -h --version
-        set help 1
-        break
-      case --
-        break
-      case --profile --http --https --socks --no-proxy --host --port --mode --node-ca --shell -p
-        set i (math $i + 2)
-        continue
-      case "--profile=*" "--http=*" "--https=*" "--socks=*" "--no-proxy=*" "--host=*" "--port=*" "--mode=*" "--node-ca=*" "--shell=*"
-        set i (math $i + 1)
-        continue
-      case --json -j
-        set json 1
-        set i (math $i + 1)
-        continue
-      case --json=false --json=FALSE --json=False --json=0 --json=f --json=F -j=false -j=FALSE -j=False -j=0 -j=f -j=F
-        set json 0
-        set i (math $i + 1)
-        continue
-      case "--json=*" "-j=*"
-        set json 1
-        set i (math $i + 1)
-        continue
-      case --node --no-node --uppercase --no-uppercase --quiet -q --emit
-        set i (math $i + 1)
-        continue
-      case "--node=*" "--uppercase=*" "--quiet=*" "--no-node=*" "--no-uppercase=*" "--emit=*"
-        set i (math $i + 1)
-        continue
-      case "--*"
-        set i (math $i + 1)
-        continue
-      case "-*"
-        set -l rest (string sub -s 2 -- $a)
-        while test -n "$rest"
-          set -l c (string sub -l 1 -- $rest)
-          set rest (string sub -s 2 -- $rest)
-          switch $c
-            case p
-              if test -n "$rest"
-                set rest ""
-              else
-                set i (math $i + 1)
-              end
-            case j
-              set json 1
-            case q h
-              true
+    if test $seen_cmd -eq 0
+      switch $a
+        case --help -h --version
+          set help 1
+          set i (math $i + 1)
+          continue
+        case --
+          break
+        case --shell
+          set i (math $i + 2)
+          continue
+        case "--shell=*"
+          set i (math $i + 1)
+          continue
+        case --json -j
+          set json 1
+          set i (math $i + 1)
+          continue
+        case --quiet -q
+          set i (math $i + 1)
+          continue
+        case "--json=*" "-j=*"
+          set -l v (string split -m1 = -- $a)[2]
+          if __ezp_bool_false $v
+            set json 0
+          else
+            set json 1
           end
-        end
-        set i (math $i + 1)
-        continue
-      case "*"
-        break
+          set i (math $i + 1)
+          continue
+        case "--quiet=*" "-q=*"
+          set i (math $i + 1)
+          continue
+        case "-*"
+          set -l rest (string sub -s 2 -- $a)
+          set -l ok 1
+          while test -n "$rest"
+            set -l c (string sub -l 1 -- $rest)
+            set rest (string sub -s 2 -- $rest)
+            switch $c
+              case q
+                if string match -q '=*' -- $rest
+                  set rest ""
+                end
+              case j
+                if string match -q '=*' -- $rest
+                  set -l v (string sub -s 2 -- $rest)
+                  set rest ""
+                  if __ezp_bool_false $v
+                    set json 0
+                  else
+                    set json 1
+                  end
+                else
+                  set json 1
+                end
+              case h
+                set help 1
+              case '*'
+                set ok 0
+                break
+            end
+          end
+          if test $ok -eq 1
+            set i (math $i + 1)
+            continue
+          end
+          break
+        case on off
+          set seen_cmd 1
+          set __ezp_cmd $a
+          set __ezp_cmd_idx $i
+          set i (math $i + 1)
+          continue
+        case '*'
+          break
+      end
+    else
+      switch $a
+        case --help -h --version
+          set help 1
+          break
+        case --
+          break
+        case --profile --http --https --socks --no-proxy --host --port --mode --node-ca --shell -p
+          set i (math $i + 2)
+          continue
+        case "--profile=*" "--http=*" "--https=*" "--socks=*" "--no-proxy=*" "--host=*" "--port=*" "--mode=*" "--node-ca=*" "--shell=*"
+          set i (math $i + 1)
+          continue
+        case --json -j
+          set json 1
+          set i (math $i + 1)
+          continue
+        case "--json=*" "-j=*"
+          set -l v (string split -m1 = -- $a)[2]
+          if __ezp_bool_false $v
+            set json 0
+          else
+            set json 1
+          end
+          set i (math $i + 1)
+          continue
+        case --node --no-node --uppercase --no-uppercase --quiet -q --emit
+          set i (math $i + 1)
+          continue
+        case "--node=*" "--uppercase=*" "--quiet=*" "--no-node=*" "--no-uppercase=*" "--emit=*" "-q=*"
+          set i (math $i + 1)
+          continue
+        case "--*"
+          set i (math $i + 1)
+          continue
+        case "-*"
+          set -l rest (string sub -s 2 -- $a)
+          while test -n "$rest"
+            set -l c (string sub -l 1 -- $rest)
+            set rest (string sub -s 2 -- $rest)
+            switch $c
+              case p
+                if test -n "$rest"
+                  set rest ""
+                else
+                  set i (math $i + 1)
+                end
+              case j
+                if string match -q '=*' -- $rest
+                  set -l v (string sub -s 2 -- $rest)
+                  set rest ""
+                  if __ezp_bool_false $v
+                    set json 0
+                  else
+                    set json 1
+                  end
+                else
+                  set json 1
+                end
+              case q
+                if string match -q '=*' -- $rest
+                  set rest ""
+                end
+              case h
+                set help 1
+            end
+          end
+          set i (math $i + 1)
+          continue
+        case '*'
+          break
+      end
     end
   end
-  test $help -eq 1; and return 0
-  test $json -eq 1; and return 0
-  return 1
+  if test $__ezp_cmd_idx -eq 0
+    set __ezp_mode forward
+    return
+  end
+  if test $help -eq 1 -o $json -eq 1
+    set __ezp_mode passthrough
+  else
+    set __ezp_mode emit
+  end
 end
 
 function ezp
   set -l __ezp_bin %s
-  set -l cmd
-  if set -q argv[1]
-    set cmd $argv[1]
-  end
-  if test "$cmd" = "on" -o "$cmd" = "off"
-    if __ezp_should_passthrough $argv
-      $__ezp_bin $argv
-      return $status
-    end
-    set -e argv[1]
-    set -l __ezp_out ($__ezp_bin $cmd --emit --shell fish $argv | string collect)
-    set -l __ezp_status $pipestatus[1]
-    if test $__ezp_status -ne 0
-      return $__ezp_status
-    end
-    eval $__ezp_out
+  __ezp_scan $argv
+  if test "$__ezp_mode" = forward -o "$__ezp_mode" = passthrough
+    $__ezp_bin $argv
     return $status
   end
-  $__ezp_bin $argv
+  set -l forward
+  set -l i 1
+  for a in $argv
+    if test $i -eq $__ezp_cmd_idx
+      set forward $forward $a --emit --shell fish
+    else
+      set forward $forward $a
+    end
+    set i (math $i + 1)
+  end
+  set -l __ezp_out ($__ezp_bin $forward | string collect)
+  set -l __ezp_status $pipestatus[1]
+  if test $__ezp_status -ne 0
+    return $__ezp_status
+  end
+  eval $__ezp_out
+  return $status
 end
 `, fishQuote(binPath)), nil
 	case PowerShell:
@@ -249,25 +453,65 @@ function ezp {
   $bin = %s
   if ($null -eq $Args) { $Args = @() }
 
-  function Test-EzpBoolTrue([string]$v) {
-    return $v -match '^(?i:true|1|t)$'
-  }
   function Test-EzpBoolFalse([string]$v) {
     return $v -match '^(?i:false|0|f)$'
   }
 
-  function Get-EzpOnOffMode([string[]]$inArgs) {
-    # Returns 'passthrough' when final --json is true or help/version; else 'emit'.
+  function Get-EzpScan([string[]]$inArgs) {
     $json = $false
-    $valueFlags = @('--profile','-p','--http','--https','--socks','--no-proxy','--host','--port','--mode','--node-ca','--shell')
-    $boolFlags = @('--node','--no-node','--uppercase','--no-uppercase','--quiet','-q','--emit')
-    $i = 1
+    $help = $false
+    $cmdIdx = -1
+    $cmd = $null
+    $i = 0
+    $seenCmd = $false
+    $valueAfterCmd = @('--profile','-p','--http','--https','--socks','--no-proxy','--host','--port','--mode','--node-ca','--shell')
+    $boolAfterCmd = @('--node','--no-node','--uppercase','--no-uppercase','--quiet','-q','--emit')
     while ($i -lt $inArgs.Count) {
       $a = $inArgs[$i]
-      if ($a -in @('--help','-h','--version')) { return 'passthrough' }
+      if (-not $seenCmd) {
+        if ($a -in @('--help','-h','--version')) { $help = $true; $i++; continue }
+        if ($a -eq '--') { break }
+        if ($a -eq '--shell') { $i += 2; continue }
+        if ($a.StartsWith('--shell=')) { $i++; continue }
+        if ($a -eq '--json' -or $a -eq '-j') { $json = $true; $i++; continue }
+        if ($a -eq '--quiet' -or $a -eq '-q') { $i++; continue }
+        if ($a -like '--json=*' -or $a -like '-j=*') {
+          $v = $a.Substring($a.IndexOf('=') + 1)
+          if (Test-EzpBoolFalse $v) { $json = $false } else { $json = $true }
+          $i++; continue
+        }
+        if ($a -like '--quiet=*' -or $a -like '-q=*') { $i++; continue }
+        if ($a -match '^-([^-].*)$') {
+          $rest = $Matches[1]
+          $ok = $true
+          while ($rest.Length -gt 0) {
+            $c = $rest.Substring(0,1)
+            $rest = $rest.Substring(1)
+            switch ($c) {
+              'q' { if ($rest.StartsWith('=')) { $rest = '' } }
+              'j' {
+                if ($rest.StartsWith('=')) {
+                  $v = $rest.Substring(1); $rest = ''
+                  if (Test-EzpBoolFalse $v) { $json = $false } else { $json = $true }
+                } else { $json = $true }
+              }
+              'h' { $help = $true }
+              default { $ok = $false }
+            }
+            if (-not $ok) { break }
+          }
+          if ($ok) { $i++; continue }
+          break
+        }
+        if ($a -eq 'on' -or $a -eq 'off') {
+          $seenCmd = $true; $cmd = $a; $cmdIdx = $i; $i++; continue
+        }
+        break
+      }
+      if ($a -in @('--help','-h','--version')) { $help = $true; break }
       if ($a -eq '--') { break }
       $matched = $false
-      foreach ($f in $valueFlags) {
+      foreach ($f in $valueAfterCmd) {
         if ($a -eq $f) { $i += 2; $matched = $true; break }
         if ($a.StartsWith("$f=")) { $i++; $matched = $true; break }
       }
@@ -278,8 +522,8 @@ function ezp {
         if (Test-EzpBoolFalse $v) { $json = $false } else { $json = $true }
         $i++; continue
       }
-      if ($boolFlags -contains $a) { $i++; continue }
-      if ($a -match '^--(node|uppercase|quiet|no-node|no-uppercase|emit)=') { $i++; continue }
+      if ($boolAfterCmd -contains $a) { $i++; continue }
+      if ($a -match '^--(node|uppercase|quiet|no-node|no-uppercase|emit)=' -or $a -like '-q=*') { $i++; continue }
       if ($a -match '^--') { $i++; continue }
       if ($a -match '^-([^-].*)$') {
         $rest = $Matches[1]
@@ -288,7 +532,14 @@ function ezp {
           $rest = $rest.Substring(1)
           switch ($c) {
             'p' { if ($rest.Length -gt 0) { $rest = '' } else { $i++ } }
-            'j' { $json = $true }
+            'j' {
+              if ($rest.StartsWith('=')) {
+                $v = $rest.Substring(1); $rest = ''
+                if (Test-EzpBoolFalse $v) { $json = $false } else { $json = $true }
+              } else { $json = $true }
+            }
+            'q' { if ($rest.StartsWith('=')) { $rest = '' } }
+            'h' { $help = $true }
             default { }
           }
         }
@@ -296,12 +547,14 @@ function ezp {
       }
       break
     }
-    if ($json) { return 'passthrough' }
-    return 'emit'
+    $mode = 'forward'
+    if ($cmdIdx -ge 0) {
+      if ($help -or $json) { $mode = 'passthrough' } else { $mode = 'emit' }
+    }
+    return @{ Mode = $mode; CmdIdx = $cmdIdx; Cmd = $cmd }
   }
 
   function Get-EzpExecForward([string[]]$inArgs) {
-    # Accept global flags before exec, then exec flags, then re-insert "--".
     $valueFlags = @('--profile','-p','--http','--https','--socks','--no-proxy','--host','--port','--mode','--node-ca','--shell')
     $boolFlags = @('--node','--no-node','--uppercase','--no-uppercase','--json','-j','--quiet','-q','--help','-h','--version','--emit')
     $execIdx = -1
@@ -309,13 +562,9 @@ function ezp {
     while ($i -lt $inArgs.Count) {
       $a = $inArgs[$i]
       if ($a -eq 'exec') { $execIdx = $i; break }
-      $matched = $false
-      foreach ($f in @('--shell')) {
-        if ($a -eq $f) { $i += 2; $matched = $true; break }
-        if ($a.StartsWith("$f=")) { $i++; $matched = $true; break }
-      }
-      if ($matched) { continue }
-      if ($a -in @('--json','-j','--quiet','-q','--help','-h','--version') -or $a -like '--json=*' -or $a -like '-j=*' -or $a -match '^-([jqh]+)$') {
+      if ($a -eq '--shell') { $i += 2; continue }
+      if ($a.StartsWith('--shell=')) { $i++; continue }
+      if ($a -in @('--json','-j','--quiet','-q','--help','-h','--version') -or $a -like '--json=*' -or $a -like '-j=*' -or $a -like '--quiet=*' -or $a -like '-q=*' -or $a -match '^-([jqh]+)$' -or $a -match '^-([jqh]+)=') {
         $i++; continue
       }
       break
@@ -334,8 +583,7 @@ function ezp {
       }
       if ($matched) { continue }
       if ($boolFlags -contains $a) { $i++; continue }
-      if ($a -match '^--(node|uppercase|quiet|json|no-node|no-uppercase|emit)=') { $i++; continue }
-      if ($a -like '-j=*' -or $a -like '--json=*') { $i++; continue }
+      if ($a -match '^--(node|uppercase|quiet|json|no-node|no-uppercase|emit)=' -or $a -like '-j=*' -or $a -like '--json=*' -or $a -like '-q=*') { $i++; continue }
       if ($a -match '^-([^-].*)$') {
         $rest = $Matches[1]
         $advance = 1
@@ -344,6 +592,8 @@ function ezp {
           $rest = $rest.Substring(1)
           if ($c -eq 'p') {
             if ($rest.Length -eq 0) { $advance = 2 }
+            $rest = ''
+          } elseif ($rest.StartsWith('=')) {
             $rest = ''
           }
         }
@@ -367,24 +617,31 @@ function ezp {
     return ,$forward.ToArray()
   }
 
-  if ($Args.Count -ge 1 -and ($Args[0] -eq 'on' -or $Args[0] -eq 'off')) {
-    if ((Get-EzpOnOffMode $Args) -eq 'passthrough') {
-      & $bin @Args
-      if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
-      return
+  $scan = Get-EzpScan $Args
+  if ($scan.Mode -eq 'passthrough') {
+    & $bin @Args
+    if ($LASTEXITCODE -ne 0) { throw "ezp failed with exit $LASTEXITCODE" }
+    return
+  }
+  if ($scan.Mode -eq 'emit') {
+    $forward = New-Object System.Collections.Generic.List[string]
+    for ($i = 0; $i -lt $Args.Count; $i++) {
+      [void]$forward.Add($Args[$i])
+      if ($i -eq $scan.CmdIdx) {
+        [void]$forward.Add('--emit')
+        [void]$forward.Add('--shell')
+        [void]$forward.Add('powershell')
+      }
     }
-    $cmd = $Args[0]
-    $rest = @()
-    if ($Args.Count -gt 1) { $rest = $Args[1..($Args.Count-1)] }
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $raw = & $bin $cmd --emit --shell powershell @rest 2>&1
+    $raw = & $bin @($forward.ToArray()) 2>&1
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
     $text = ($raw | ForEach-Object { "$_" }) -join [Environment]::NewLine
     if ($code -ne 0) {
       if ($text) { Write-Error $text }
-      throw "ezp $cmd failed with exit $code"
+      throw "ezp $($scan.Cmd) failed with exit $code"
     }
     if ($text) { Invoke-Expression $text }
     return
@@ -401,97 +658,144 @@ function ezp {
 		return fmt.Sprintf(`# easy-proxy-cli shell hook (nushell)
 def --env --wrapped ezp [...args: string] {
   let bin = %s
-  let cmd = ($args | get 0? | default "")
 
   def is_false_bool [v: string] {
     $v in ["false" "FALSE" "False" "0" "f" "F"]
   }
-  def should_passthrough [argv: list<string>] {
+  def scan [argv: list<string>] {
     mut json = false
-    mut i = 1
+    mut help = false
+    mut cmd_idx = -1
+    mut cmd = ""
+    mut i = 0
+    mut seen_cmd = false
     while $i < ($argv | length) {
       let a = ($argv | get $i)
-      if $a in ["--help" "-h" "--version"] { return true }
-      if $a == "--" { break }
-      if $a in ["--profile" "--http" "--https" "--socks" "--no-proxy" "--host" "--port" "--mode" "--node-ca" "--shell" "-p"] {
-        $i = $i + 2
-        continue
-      }
-      if ($a | str starts-with "--profile=") or ($a | str starts-with "--http=") or ($a | str starts-with "--https=") or ($a | str starts-with "--socks=") or ($a | str starts-with "--no-proxy=") or ($a | str starts-with "--host=") or ($a | str starts-with "--port=") or ($a | str starts-with "--mode=") or ($a | str starts-with "--node-ca=") or ($a | str starts-with "--shell=") {
-        $i = $i + 1
-        continue
-      }
-      if $a in ["--json" "-j"] {
-        $json = true
-        $i = $i + 1
-        continue
-      }
-      if ($a | str starts-with "--json=") or ($a | str starts-with "-j=") {
-        let v = ($a | split row "=" | get 1)
-        $json = (not (is_false_bool $v))
-        $i = $i + 1
-        continue
-      }
-      if $a in ["--node" "--no-node" "--uppercase" "--no-uppercase" "--quiet" "-q" "--emit"] {
-        $i = $i + 1
-        continue
-      }
-      if ($a | str starts-with "--node=") or ($a | str starts-with "--uppercase=") or ($a | str starts-with "--quiet=") or ($a | str starts-with "--emit=") {
-        $i = $i + 1
-        continue
-      }
-      if ($a | str starts-with "--") {
-        $i = $i + 1
-        continue
-      }
-      if ($a | str starts-with "-") and (not ($a | str starts-with "--")) {
-        mut rest = ($a | str substring 1..)
-        while ($rest | str length) > 0 {
-          let c = ($rest | str substring 0..<1)
-          $rest = ($rest | str substring 1..)
-          if $c == "p" {
-            if ($rest | str length) > 0 {
-              $rest = ""
-            } else {
-              $i = $i + 1
-            }
-          } else if $c == "j" {
-            $json = true
-          }
+      if not $seen_cmd {
+        if $a in ["--help" "-h" "--version"] { $help = true; $i = $i + 1; continue }
+        if $a == "--" { break }
+        if $a == "--shell" { $i = $i + 2; continue }
+        if ($a | str starts-with "--shell=") { $i = $i + 1; continue }
+        if $a in ["--json" "-j"] { $json = true; $i = $i + 1; continue }
+        if $a in ["--quiet" "-q"] { $i = $i + 1; continue }
+        if ($a | str starts-with "--json=") or ($a | str starts-with "-j=") {
+          let v = ($a | split row "=" | get 1)
+          $json = (not (is_false_bool $v))
+          $i = $i + 1
+          continue
         }
-        $i = $i + 1
-        continue
+        if ($a | str starts-with "--quiet=") or ($a | str starts-with "-q=") { $i = $i + 1; continue }
+        if ($a | str starts-with "-") and (not ($a | str starts-with "--")) {
+          mut rest = ($a | str substring 1..)
+          mut ok = true
+          while ($rest | str length) > 0 {
+            let c = ($rest | str substring 0..<1)
+            $rest = ($rest | str substring 1..)
+            if $c == "q" {
+              if ($rest | str starts-with "=") { $rest = "" }
+            } else if $c == "j" {
+              if ($rest | str starts-with "=") {
+                let v = ($rest | str substring 1..)
+                $rest = ""
+                $json = (not (is_false_bool $v))
+              } else { $json = true }
+            } else if $c == "h" {
+              $help = true
+            } else { $ok = false; break }
+          }
+          if $ok { $i = $i + 1; continue }
+          break
+        }
+        if $a in ["on" "off"] {
+          $seen_cmd = true
+          $cmd = $a
+          $cmd_idx = $i
+          $i = $i + 1
+          continue
+        }
+        break
+      } else {
+        if $a in ["--help" "-h" "--version"] { $help = true; break }
+        if $a == "--" { break }
+        if $a in ["--profile" "--http" "--https" "--socks" "--no-proxy" "--host" "--port" "--mode" "--node-ca" "--shell" "-p"] {
+          $i = $i + 2; continue
+        }
+        if ($a | str starts-with "--profile=") or ($a | str starts-with "--http=") or ($a | str starts-with "--https=") or ($a | str starts-with "--socks=") or ($a | str starts-with "--no-proxy=") or ($a | str starts-with "--host=") or ($a | str starts-with "--port=") or ($a | str starts-with "--mode=") or ($a | str starts-with "--node-ca=") or ($a | str starts-with "--shell=") {
+          $i = $i + 1; continue
+        }
+        if $a in ["--json" "-j"] { $json = true; $i = $i + 1; continue }
+        if ($a | str starts-with "--json=") or ($a | str starts-with "-j=") {
+          let v = ($a | split row "=" | get 1)
+          $json = (not (is_false_bool $v))
+          $i = $i + 1
+          continue
+        }
+        if $a in ["--node" "--no-node" "--uppercase" "--no-uppercase" "--quiet" "-q" "--emit"] {
+          $i = $i + 1; continue
+        }
+        if ($a | str starts-with "--node=") or ($a | str starts-with "--uppercase=") or ($a | str starts-with "--quiet=") or ($a | str starts-with "--emit=") or ($a | str starts-with "-q=") {
+          $i = $i + 1; continue
+        }
+        if ($a | str starts-with "--") { $i = $i + 1; continue }
+        if ($a | str starts-with "-") and (not ($a | str starts-with "--")) {
+          mut rest = ($a | str substring 1..)
+          while ($rest | str length) > 0 {
+            let c = ($rest | str substring 0..<1)
+            $rest = ($rest | str substring 1..)
+            if $c == "p" {
+              if ($rest | str length) > 0 { $rest = "" } else { $i = $i + 1 }
+            } else if $c == "j" {
+              if ($rest | str starts-with "=") {
+                let v = ($rest | str substring 1..)
+                $rest = ""
+                $json = (not (is_false_bool $v))
+              } else { $json = true }
+            } else if $c == "q" {
+              if ($rest | str starts-with "=") { $rest = "" }
+            } else if $c == "h" {
+              $help = true
+            }
+          }
+          $i = $i + 1
+          continue
+        }
+        break
       }
-      break
     }
-    $json
+    let mode = if $cmd_idx < 0 {
+      "forward"
+    } else if $help or $json {
+      "passthrough"
+    } else {
+      "emit"
+    }
+    {mode: $mode, cmd_idx: $cmd_idx, cmd: $cmd}
   }
-  def strip_json_flags [argv: list<string>] {
-    $argv | where {|a|
-      not ($a in ["--json" "-j"] or ($a | str starts-with "--json=") or ($a | str starts-with "-j="))
+  def entries_to_record [entries: list] {
+    mut rec = {}
+    for e in $entries {
+      $rec = ($rec | upsert $e.key $e.value)
     }
+    $rec
   }
 
-  if $cmd == "on" or $cmd == "off" {
-    if (should_passthrough $args) {
-      return (^$bin ...$args)
-    }
-    let rest = (strip_json_flags ($args | skip 1))
-    let result = (^$bin $cmd ...$rest --json | complete)
-    if $result.exit_code != 0 {
-      error make {msg: $"ezp ($cmd) failed", label: {text: ($result.stderr | str trim)}}
-    }
-    let data = ($result.stdout | from json)
-    if $cmd == "on" {
-      load-env $data.env
-    } else {
-      for k in $data.unset {
-        hide-env -i $k
-      }
-    }
-    return
+  let s = (scan $args)
+  if $s.mode == "forward" or $s.mode == "passthrough" {
+    return (^$bin ...$args)
   }
-  return (^$bin ...$args)
+  let result = (^$bin ...$args --json | complete)
+  if $result.exit_code != 0 {
+    error make {msg: $"ezp ($s.cmd) failed", label: {text: ($result.stderr | str trim)}}
+  }
+  let data = ($result.stdout | from json)
+  if $s.cmd == "on" {
+    load-env (entries_to_record $data.env)
+  } else {
+    for k in $data.unset {
+      hide-env -i $k
+    }
+  }
+  return
 }
 `, nuQuote(binPath)), nil
 	default:

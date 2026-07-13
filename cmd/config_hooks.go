@@ -299,6 +299,7 @@ func newSchemaCmd() *cobra.Command {
 					"stdout":      "shell scripts, JSON payloads, command results",
 					"stderr":      "human hints (suppressed by --json / --quiet)",
 					"shell_apply": "eval \"$(ezp on --emit)\" or eval \"$(ezp hook <shell>)\"",
+					"env_json":    "env fields are [{key,value},...] (case-safe for PowerShell)",
 				},
 				"commands": []map[string]any{
 					{"name": "on", "desc": "emit exports", "agent": "ezp on --json | ezp on --emit"},

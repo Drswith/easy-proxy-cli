@@ -150,8 +150,19 @@ func TestOnEmitAndJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &m); err != nil {
 		t.Fatal(err)
 	}
-	env := m["env"].(map[string]any)
-	if env["http_proxy"] == nil {
+	envList, ok := m["env"].([]any)
+	if !ok || len(envList) == 0 {
+		t.Fatalf("env entries: %v", m)
+	}
+	found := false
+	for _, item := range envList {
+		e := item.(map[string]any)
+		if e["key"] == "http_proxy" && e["value"] != nil {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatalf("%v", m)
 	}
 }
@@ -182,9 +193,15 @@ func TestEnvFormats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]string
-	if err := json.Unmarshal([]byte(out), &m); err != nil {
+	var entries []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
 		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected env entries")
 	}
 }
 

@@ -84,12 +84,22 @@ func TestE2ECoreFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]string
-	if err := json.Unmarshal([]byte(out), &m); err != nil {
+	var entries []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
 		t.Fatal(err)
 	}
-	if m["NODE_USE_ENV_PROXY"] != "1" {
-		t.Fatalf("%v", m)
+	foundNode := false
+	for _, e := range entries {
+		if e.Key == "NODE_USE_ENV_PROXY" && e.Value == "1" {
+			foundNode = true
+			break
+		}
+	}
+	if !foundNode {
+		t.Fatalf("%v", entries)
 	}
 
 	out, _, err = run(t, env, "exec", "--", "printenv", "http_proxy")
