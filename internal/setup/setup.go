@@ -193,7 +193,11 @@ func removeHook(path string, dryRun bool) (string, error) {
 	if dryRun {
 		return "would_remove", nil
 	}
-	if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+	mode := os.FileMode(0o644)
+	if st, err := os.Stat(path); err == nil {
+		mode = st.Mode().Perm()
+	}
+	if err := os.WriteFile(path, []byte(next), mode); err != nil {
 		return "skipped", err
 	}
 	return "removed", nil

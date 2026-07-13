@@ -119,14 +119,12 @@ func newOffCmd() *cobra.Command {
 		Short: "Disable proxy env (prints shell unset statements)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			emit, _ := cmd.Flags().GetBool("emit")
-			cfg, err := config.LoadOrCreate()
-			if err != nil {
-				return err
-			}
 			noNode, _ := cmd.Flags().GetBool("no-node")
 			noUpper, _ := cmd.Flags().GetBool("no-uppercase")
-			mirror := cfg.Extras.MirrorUppercase && !noUpper
-			node := cfg.Extras.NodeUseEnvProxy && !noNode
+			// Default: clear every managed key. Only explicit --no-* excludes families.
+			// Do not follow config extras — `on` flags can diverge from config.
+			mirror := !noUpper
+			node := !noNode
 			keys := proxy.OffKeys(mirror, node)
 
 			w := out()

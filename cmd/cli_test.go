@@ -10,6 +10,9 @@ import (
 	"testing"
 
 	"github.com/drswith/easy-proxy-cli/cmd"
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-cli/internal/config"
+	"github.com/drswith/easy-proxy-cli/internal/output"
 )
 
 func capture(t *testing.T, args ...string) (stdout, stderr string, err error) {
@@ -30,6 +33,42 @@ func capture(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	_, _ = io.Copy(&bo, ro)
 	_, _ = io.Copy(&be, re)
 	return bo.String(), be.String(), runErr
+}
+
+func TestOffClearsUppercaseByDefault(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EASY_PROXY_HOME", dir)
+	// Config with uppercase mirroring disabled should not affect off defaults.
+	cfg := config.Default()
+	cfg.Extras.MirrorUppercase = false
+	cfg.Extras.NodeUseEnvProxy = false
+	if err := config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := capture(t, "off", "--emit", "--quiet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NODE_USE_ENV_PROXY"} {
+		if !strings.Contains(out, "unset "+k) {
+			t.Fatalf("expected unset %s in:\n%s", k, out)
+		}
+	}
+}
+
+func TestMisconfigExitCode(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EASY_PROXY_HOME", dir)
+	err := cmd.ExecuteArgs([]string{"on", "--mode", "invalid", "--quiet"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !apperr.IsMisconfig(err) {
+		t.Fatalf("want misconfig, got %v", err)
+	}
+	if code := cmd.ExitCodeFor(err); code != output.ExitMisconfig {
+		t.Fatalf("exit=%d", code)
+	}
 }
 
 func TestSchemaJSON(t *testing.T) {

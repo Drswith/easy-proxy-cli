@@ -8,6 +8,36 @@ import (
 	"github.com/drswith/easy-proxy-cli/internal/config"
 )
 
+func TestSaveUsesPrivatePerms(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EASY_PROXY_HOME", dir)
+	if err := config.Save(config.Default()); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, config.ConfigName)
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Fatalf("perm=%o want 0600", st.Mode().Perm())
+	}
+	// Overwrite a world-readable file and ensure chmod tightens it.
+	if err := os.WriteFile(path, []byte("version = 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(config.Default()); err != nil {
+		t.Fatal(err)
+	}
+	st, err = os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Fatalf("after overwrite perm=%o want 0600", st.Mode().Perm())
+	}
+}
+
 func TestDefaultAndProfile(t *testing.T) {
 	cfg := config.Default()
 	if cfg.DefaultProfile != "default" {

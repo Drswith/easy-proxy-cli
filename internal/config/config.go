@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/drswith/easy-proxy-cli/internal/apperr"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -140,7 +141,11 @@ func Save(cfg Config) error {
 		return err
 	}
 	path := filepath.Join(dir, ConfigName)
-	return os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return err
+	}
+	// Tighten perms even when overwriting an older 0644 file (may contain credentials).
+	return os.Chmod(path, 0o600)
 }
 
 func (c Config) withDefaults() Config {
@@ -176,7 +181,7 @@ func (c Config) Profile(name string) (Profile, error) {
 		for n := range c.Profiles {
 			names = append(names, n)
 		}
-		return Profile{}, fmt.Errorf("profile %q not found (available: %s)", name, strings.Join(names, ", "))
+		return Profile{}, apperr.Misconfigf("profile %q not found (available: %s)", name, strings.Join(names, ", "))
 	}
 	if p.HTTPS == "" {
 		p.HTTPS = p.HTTP
