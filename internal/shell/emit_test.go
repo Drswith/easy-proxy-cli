@@ -18,11 +18,11 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 	if !strings.Contains(script, `${1-}`) {
 		t.Fatalf("hook must be nounset-safe:\n%s", script)
 	}
-	if !strings.Contains(script, `--json=false`) {
-		t.Fatalf("hook must treat --json=false as non-readonly:\n%s", script)
+	if !strings.Contains(script, `__ezp_should_passthrough`) {
+		t.Fatalf("hook must pflag-parse json flags:\n%s", script)
 	}
-	if !strings.Contains(script, `*j*)`) {
-		t.Fatalf("hook must detect -qj style shorts:\n%s", script)
+	if !strings.Contains(script, `--json --json=false`) && !strings.Contains(script, `json=0`) {
+		t.Fatalf("hook must honor last --json assignment:\n%s", script)
 	}
 }
 
@@ -34,6 +34,9 @@ func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
 	if !strings.Contains(fish, "--shell fish") {
 		t.Fatalf("fish hook must pass --shell fish:\n%s", fish)
 	}
+	if !strings.Contains(fish, `__ezp_should_passthrough`) {
+		t.Fatalf("fish hook must pflag-parse json flags:\n%s", fish)
+	}
 	ps, err := shell.HookScript(shell.PowerShell, `C:\ezp.exe`)
 	if err != nil {
 		t.Fatal(err)
@@ -44,8 +47,11 @@ func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
 	if !strings.Contains(ps, "Get-EzpExecForward") {
 		t.Fatalf("powershell hook must place -- after exec flags:\n%s", ps)
 	}
-	if !strings.Contains(ps, `'^--json=(?i:false|0|f)$'`) {
-		t.Fatalf("powershell hook must reject --json=false as readonly:\n%s", ps)
+	if !strings.Contains(ps, "Get-EzpOnOffMode") {
+		t.Fatalf("powershell hook must parse on/off json mode:\n%s", ps)
+	}
+	if !strings.Contains(ps, `$Args -contains 'exec'`) {
+		t.Fatalf("powershell hook must find exec after global flags:\n%s", ps)
 	}
 }
 
@@ -60,11 +66,11 @@ func TestNuHookUsesJSON(t *testing.T) {
 	if !strings.Contains(script, `let bin = "/usr/local/bin/ezp"`) {
 		t.Fatalf("expected string literal bin: %s", script)
 	}
-	if !strings.Contains(script, "--json") || !strings.Contains(script, "from json") {
-		t.Fatalf("nu hook should consume --json:\n%s", script)
+	if !strings.Contains(script, "strip_json_flags") || !strings.Contains(script, "--json | complete") {
+		t.Fatalf("nu hook should append --json after stripping user flags:\n%s", script)
 	}
-	if !strings.Contains(script, "return (^$bin") {
-		t.Fatalf("nu readonly path should return pipeline output:\n%s", script)
+	if !strings.Contains(script, "should_passthrough") {
+		t.Fatalf("nu hook must pflag-parse json flags:\n%s", script)
 	}
 }
 
