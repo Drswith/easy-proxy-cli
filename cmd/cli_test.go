@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/drswith/easy-proxy-cli/cmd"
@@ -25,14 +27,26 @@ func capture(t *testing.T, args ...string) (stdout, stderr string, err error) {
 		os.Stdout, os.Stderr = oldOut, oldErr
 	}()
 
-	runErr := cmd.ExecuteArgs(args)
+	// Read pipes concurrently to avoid deadlock when a child (ezp exec)
+	// writes enough output to fill the OS pipe buffer.
+	var bo, be bytes.Buffer
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); _, _ = io.Copy(&bo, ro) }()
+	go func() { defer wg.Done(); _, _ = io.Copy(&be, re) }()
 
+	runErr := cmd.ExecuteArgs(args)
 	_ = wo.Close()
 	_ = we.Close()
-	var bo, be bytes.Buffer
-	_, _ = io.Copy(&bo, ro)
-	_, _ = io.Copy(&be, re)
+	wg.Wait()
 	return bo.String(), be.String(), runErr
+}
+
+func setTestHome(t *testing.T, home string) {
+	t.Helper()
+	t.Setenv("HOME", home)
+	// Windows UserHomeDir uses USERPROFILE, not HOME.
+	t.Setenv("USERPROFILE", home)
 }
 
 func TestOffClearsUppercaseByDefault(t *testing.T) {
@@ -175,7 +189,7 @@ func TestHookAndSetupDryRun(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("EASY_PROXY_HOME", dir)
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	t.Setenv("SHELL", "/bin/zsh")
 
 	out, _, err := capture(t, "hook", "zsh")
@@ -204,7 +218,7 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("EASY_PROXY_HOME", dir)
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	t.Setenv("SHELL", "/bin/zsh")
 	zshrc := filepath.Join(home, ".zshrc")
 	if err := os.WriteFile(zshrc, []byte("# keep\n"), 0o644); err != nil {
@@ -249,15 +263,20 @@ func TestStatusAndExec(t *testing.T) {
 		t.Fatalf("%s", out)
 	}
 
-	// exec should inject env into child; use /usr/bin/env
-	out, _, err = capture(t, "exec", "--", "env")
-	// exec may os.Exit on non-zero; env returns 0. Capture may not get stdout if exec replaces...
-	// Our exec uses Command.Run which writes to os.Stdout — should work inside capture pipes.
+	// Prefer a small child so we never fill the stdout pipe (Windows CI env is huge).
+	// exec injects the default profile (http://127.0.0.1:7897), not ambient env.
+	var args []string
+	if runtime.GOOS == "windows" {
+		args = []string{"exec", "--", "cmd", "/c", "echo", "http_proxy=%http_proxy%"}
+	} else {
+		args = []string{"exec", "--", "sh", "-c", `printf '%s\n' "http_proxy=$http_proxy"`}
+	}
+	out, _, err = capture(t, args...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "http_proxy=") {
-		t.Fatalf("exec env missing proxy: %s", out)
+	if !strings.Contains(out, "http_proxy=http://127.0.0.1:7897") {
+		t.Fatalf("exec missing proxy: %s", out)
 	}
 }
 
