@@ -58,14 +58,23 @@ func run(t *testing.T, env []string, args ...string) (string, string, error) {
 	return stdout.String(), stderr.String(), err
 }
 
+// homeEnv builds a process env rooted at home, clearing ambient XDG_CONFIG_HOME /
+// ZDOTDIR so setup hooks land under the temp home (CI runners often set XDG_*).
+func homeEnv(home, cfg string, extra ...string) []string {
+	env := []string{
+		"HOME=" + home,
+		"USERPROFILE=" + home,
+		"EASY_PROXY_HOME=" + cfg,
+		"XDG_CONFIG_HOME=",
+		"ZDOTDIR=",
+	}
+	return append(env, extra...)
+}
+
 func TestE2ECoreFlow(t *testing.T) {
 	home := t.TempDir()
 	cfg := t.TempDir()
-	env := []string{
-		"HOME=" + home,
-		"EASY_PROXY_HOME=" + cfg,
-		"SHELL=/bin/bash",
-	}
+	env := homeEnv(home, cfg, "SHELL=/bin/bash")
 
 	out, _, err := run(t, env, "config", "init", "--json")
 	if err != nil {
@@ -155,11 +164,7 @@ func TestE2ESetupHookShells(t *testing.T) {
 			if err := os.WriteFile(rc, []byte("# base\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			env := []string{
-				"HOME=" + home,
-				"EASY_PROXY_HOME=" + cfg,
-				"SHELL=" + tc.interp,
-			}
+			env := homeEnv(home, cfg, "SHELL="+tc.interp)
 			_, stderr, err := run(t, env, "setup", "--shell", tc.shell, "--bin", bin())
 			if err != nil {
 				t.Fatalf("setup: %v %s", err, stderr)
@@ -239,7 +244,7 @@ func TestE2EDoctorAgainstLocalListener(t *testing.T) {
 
 	home := t.TempDir()
 	cfg := t.TempDir()
-	env := []string{"HOME=" + home, "EASY_PROXY_HOME=" + cfg}
+	env := homeEnv(home, cfg)
 
 	_, _, err = run(t, env, "config", "init")
 	if err != nil {
@@ -294,11 +299,7 @@ func TestE2ESetupHookPowerShell(t *testing.T) {
 	}
 	home := t.TempDir()
 	cfg := t.TempDir()
-	env := []string{
-		"HOME=" + home,
-		"USERPROFILE=" + home,
-		"EASY_PROXY_HOME=" + cfg,
-	}
+	env := homeEnv(home, cfg)
 	hookOut, _, err := run(t, env, "hook", "powershell")
 	if err != nil {
 		t.Fatal(err)
@@ -333,14 +334,12 @@ func TestE2ESetupHookNu(t *testing.T) {
 	}
 	home := t.TempDir()
 	cfg := t.TempDir()
-	env := []string{
-		"HOME=" + home,
-		"EASY_PROXY_HOME=" + cfg,
+	env := homeEnv(home, cfg,
 		// Inherited uppercase aliases must not survive ezp on (Nu prefers lowercase).
 		"HTTP_PROXY=http://stale.example:9",
 		"HTTPS_PROXY=http://stale.example:9",
 		"ALL_PROXY=socks5://stale.example:9",
-	}
+	)
 	hookOut, _, err := run(t, env, "hook", "nu")
 	if err != nil {
 		t.Fatal(err)
@@ -380,11 +379,7 @@ func TestE2EBashHookPropagatesFailure(t *testing.T) {
 	if err := os.WriteFile(bashrc, []byte("# base\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	env := []string{
-		"HOME=" + home,
-		"EASY_PROXY_HOME=" + cfg,
-		"SHELL=/bin/bash",
-	}
+	env := homeEnv(home, cfg, "SHELL=/bin/bash")
 	_, _, err := run(t, env, "setup", "--shell", "bash", "--bin", bin())
 	if err != nil {
 		t.Fatal(err)
