@@ -1,4 +1,14 @@
+[English](README.en.md) | **中文**
+
 # easy-proxy-switch-cli (`eps`)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![CI](https://img.shields.io/github/actions/workflow/status/drswith/easy-proxy-switch-cli/ci.yml?branch=main&label=CI&logo=github)](https://github.com/drswith/easy-proxy-switch-cli/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/drswith/easy-proxy-switch-cli?include_prereleases&logo=github)](https://github.com/drswith/easy-proxy-switch-cli/releases)
+[![Downloads](https://img.shields.io/github/downloads/drswith/easy-proxy-switch-cli/total?label=Downloads&logo=github)](https://github.com/drswith/easy-proxy-switch-cli/releases)
+[![Latest Downloads](https://img.shields.io/github/downloads/drswith/easy-proxy-switch-cli/latest/total?label=Latest%20Downloads&logo=github)](https://github.com/drswith/easy-proxy-switch-cli/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#安装)
 
 跨平台代理开关 CLI：一键开启/关闭 `http_proxy` / `https_proxy` / `all_proxy`，并附带 Node.js 等语言语法糖。配置仅用于指定本地代理端口，核心能力是 shell 级开关而非代理规则管理。
 
