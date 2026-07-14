@@ -42,6 +42,37 @@ curl -fsSL .../install.sh | bash -s -- --no-modify-rc
 curl -fsSL .../install.sh | bash -s -- --shell zsh --shell bash
 ```
 
+### 一键卸载
+
+macOS / Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/uninstall.sh | bash
+```
+
+Windows（PowerShell）：
+
+```powershell
+irm https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/uninstall.ps1 | iex
+```
+
+卸载脚本会：移除 shell hook → 删除二进制。默认**保留** `~/.easy-proxy-switch` 配置。
+
+常用选项：
+
+```bash
+# 同时删除配置目录
+curl -fsSL .../uninstall.sh | bash -s -- --purge
+
+# 只删二进制，不改 rc
+curl -fsSL .../uninstall.sh | bash -s -- --no-modify-rc
+
+# 只从指定 shell 的 rc 移除 hook
+curl -fsSL .../uninstall.sh | bash -s -- --shell zsh
+```
+
+已安装 `eps` 时也可手动：`eps setup --uninstall`。
+
 ### 从源码
 
 ```bash
