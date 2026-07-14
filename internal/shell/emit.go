@@ -803,6 +803,11 @@ def --env --wrapped ezp [...args: string] {
     for k in ($data.unset? | default []) {
       hide-env -i $k
     }
+    # Drop uppercase aliases before loading lowercase-only records so inherited
+    # HTTP_PROXY cannot linger when entries_to_record skips uppercase mirrors.
+    for k in ["HTTP_PROXY" "HTTPS_PROXY" "ALL_PROXY" "NO_PROXY"] {
+      hide-env -i $k
+    }
     load-env (entries_to_record $data.env)
   } else {
     for k in $data.unset {

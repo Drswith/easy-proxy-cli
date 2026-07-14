@@ -108,6 +108,9 @@ func TestNuHookUsesJSON(t *testing.T) {
 	if !strings.Contains(script, `$data.unset?`) {
 		t.Fatalf("nu on path must apply unset list:\n%s", script)
 	}
+	if !strings.Contains(script, `hide-env -i $k`) || !strings.Contains(script, "HTTP_PROXY") {
+		t.Fatalf("nu on path must clear inherited uppercase proxies:\n%s", script)
+	}
 	if !strings.Contains(script, "def scan") {
 		t.Fatalf("nu hook must scan globals before on/off:\n%s", script)
 	}

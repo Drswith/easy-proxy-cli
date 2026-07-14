@@ -336,6 +336,10 @@ func TestE2ESetupHookNu(t *testing.T) {
 	env := []string{
 		"HOME=" + home,
 		"EASY_PROXY_HOME=" + cfg,
+		// Inherited uppercase aliases must not survive ezp on (Nu prefers lowercase).
+		"HTTP_PROXY=http://stale.example:9",
+		"HTTPS_PROXY=http://stale.example:9",
+		"ALL_PROXY=socks5://stale.example:9",
 	}
 	hookOut, _, err := run(t, env, "hook", "nu")
 	if err != nil {
@@ -349,6 +353,10 @@ func TestE2ESetupHookNu(t *testing.T) {
 source '` + hookFile + `'
 ezp on
 if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after on"} }
+if ($env.http_proxy | str contains "stale.example") { error make {msg: "stale lowercase proxy survived"} }
+# Child processes must not see the inherited uppercase stale values.
+let child = (^env | complete)
+if ($child.stdout | str contains "stale.example") { error make {msg: $"stale uppercase survived in child env: ($child.stdout)"} }
 ezp -q on
 if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after -q on"} }
 ezp off
