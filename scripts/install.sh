@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# easy-proxy-cli installer for macOS / Linux
+# easy-proxy-switch-cli installer for macOS / Linux
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/drswith/easy-proxy-cli/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/install.sh | bash
 #   curl -fsSL ... | bash -s -- --no-modify-rc
 #   curl -fsSL ... | bash -s -- --shell zsh
 #
 # Env:
-#   EZP_VERSION       release tag (default: latest)
-#   EZP_INSTALL_DIR   binary dir (default: ~/.local/bin)
-#   EZP_REPO          owner/repo (default: drswith/easy-proxy-cli)
-#   EZP_BIN_URL       override download URL for the binary archive/file
-#   EZP_NO_MODIFY_RC  if set to 1, skip shell hook install
+#   EPS_VERSION       release tag (default: latest)
+#   EPS_INSTALL_DIR   binary dir (default: ~/.local/bin)
+#   EPS_REPO          owner/repo (default: drswith/easy-proxy-switch-cli)
+#   EPS_BIN_URL       override download URL for the binary archive/file
+#   EPS_NO_MODIFY_RC  if set to 1, skip shell hook install
 
 set -euo pipefail
 
-REPO="${EZP_REPO:-drswith/easy-proxy-cli}"
-INSTALL_DIR="${EZP_INSTALL_DIR:-${HOME}/.local/bin}"
-VERSION="${EZP_VERSION:-latest}"
-NO_MODIFY_RC="${EZP_NO_MODIFY_RC:-0}"
+REPO="${EPS_REPO:-drswith/easy-proxy-switch-cli}"
+INSTALL_DIR="${EPS_INSTALL_DIR:-${HOME}/.local/bin}"
+VERSION="${EPS_VERSION:-latest}"
+NO_MODIFY_RC="${EPS_NO_MODIFY_RC:-0}"
 SETUP_SHELLS=()
-BIN_NAME="ezp"
+BIN_NAME="eps"
 
 log()  { printf '+ %s\n' "$*" >&2; }
 warn() { printf '! %s\n' "$*" >&2; }
@@ -28,12 +28,12 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-install.sh — install ezp (macOS/Linux)
+install.sh — install eps (macOS/Linux)
 
 Options:
   --dir DIR           install directory (default: ~/.local/bin)
   --version TAG       release tag or "latest"
-  --shell NAME        pass to ezp setup (repeatable): zsh|bash|fish|sh|powershell|nu
+  --shell NAME        pass to eps setup (repeatable): zsh|bash|fish|sh|powershell|nu
   --no-modify-rc      install binary + config only; do not edit shell rc files
   --help              show this help
 EOF
@@ -104,15 +104,15 @@ install_from_release() {
   local os arch tag base url tmp asset
   os="$(detect_os)"
   arch="$(detect_arch)"
-  if [ -n "${EZP_BIN_URL:-}" ]; then
-    url="$EZP_BIN_URL"
+  if [ -n "${EPS_BIN_URL:-}" ]; then
+    url="$EPS_BIN_URL"
   else
     tag="$VERSION"
     if [ "$tag" = "latest" ]; then
       tag="$(resolve_latest_tag || true)"
       [ -n "$tag" ] || return 1
     fi
-    # Asset naming matches Makefile release targets: ezp-darwin-arm64, etc.
+    # Asset naming matches Makefile release targets: eps-darwin-arm64, etc.
     asset="${BIN_NAME}-${os}-${arch}"
     base="https://github.com/${REPO}/releases/download/${tag}"
     url="${base}/${asset}"
@@ -125,20 +125,20 @@ install_from_release() {
   local dest="${tmp}/${BIN_NAME}"
   if ! download "$url" "$dest"; then
     # try .tar.gz wrapper of the bare asset URL
-    if download "${url}.tar.gz" "${tmp}/ezp.tgz"; then
-      tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
+    if download "${url}.tar.gz" "${tmp}/eps.tgz"; then
+      tar -xzf "${tmp}/eps.tgz" -C "$tmp"
     else
       cleanup_tmp
       return 1
     fi
   elif [[ "$url" == *.tar.gz || "$url" == *.tgz ]]; then
-    mv "$dest" "${tmp}/ezp.tgz"
-    tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
+    mv "$dest" "${tmp}/eps.tgz"
+    tar -xzf "${tmp}/eps.tgz" -C "$tmp"
   elif command -v file >/dev/null 2>&1 && file "$dest" | grep -qi 'gzip compressed'; then
-    mv "$dest" "${tmp}/ezp.tgz"
-    tar -xzf "${tmp}/ezp.tgz" -C "$tmp"
+    mv "$dest" "${tmp}/eps.tgz"
+    tar -xzf "${tmp}/eps.tgz" -C "$tmp"
   fi
-  # After extract, binary may be at tmp/ezp or nested; prefer direct path.
+  # After extract, binary may be at tmp/eps or nested; prefer direct path.
   if [ ! -f "${tmp}/${BIN_NAME}" ]; then
     found="$(find "$tmp" -type f -name "$BIN_NAME" | head -n1 || true)"
     if [ -z "$found" ]; then
@@ -155,10 +155,10 @@ install_from_release() {
 
 install_with_go() {
   need_cmd go
-  log "installing via go install github.com/${REPO}/cmd/ezp@${VERSION}"
+  log "installing via go install github.com/${REPO}/cmd/eps@${VERSION}"
   local ver="$VERSION"
   [ "$ver" = "latest" ] && ver="latest"
-  GOBIN="$INSTALL_DIR" go install "github.com/${REPO}/cmd/ezp@${ver}"
+  GOBIN="$INSTALL_DIR" go install "github.com/${REPO}/cmd/eps@${ver}"
   log "installed ${INSTALL_DIR}/${BIN_NAME}"
 }
 
@@ -189,7 +189,7 @@ run_setup() {
 
 main() {
   mkdir -p "$INSTALL_DIR"
-  if [ -n "${EZP_BIN_URL:-}" ]; then
+  if [ -n "${EPS_BIN_URL:-}" ]; then
     install_from_release || die "download failed"
   elif install_from_release; then
     :
@@ -206,10 +206,10 @@ main() {
 
 Done. Next:
   1) open a new terminal (or source your shell rc)
-  2) ezp on
-  3) ezp status
+  2) eps on
+  3) eps status
 
-Agent tip: ezp exec -- curl -I https://example.com
+Agent tip: eps exec -- curl -I https://example.com
 EOF
 }
 

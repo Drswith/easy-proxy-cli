@@ -4,30 +4,30 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 )
 
 func TestHookScriptPreservesBinaryStatus(t *testing.T) {
-	script, err := shell.HookScript(shell.Bash, "/usr/bin/ezp")
+	script, err := shell.HookScript(shell.Bash, "/usr/bin/eps")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(script, `|| return $?`) {
 		t.Fatalf("hook must return binary status before eval:\n%s", script)
 	}
-	if !strings.Contains(script, `__ezp_scan`) {
+	if !strings.Contains(script, `__eps_scan`) {
 		t.Fatalf("hook must scan globals before on/off:\n%s", script)
 	}
-	if !strings.Contains(script, `eval "__ezp_a=\${$__ezp_i}"`) && !strings.Contains(script, `eval "__ezp_a=\${$__ezp_i}"`) {
+	if !strings.Contains(script, `eval "__eps_a=\${$__eps_i}"`) && !strings.Contains(script, `eval "__eps_a=\${$__eps_i}"`) {
 		// 1-based positional access (POSIX-safe for bash/zsh/dash)
-		if !strings.Contains(script, `__ezp_i`) {
+		if !strings.Contains(script, `__eps_i`) {
 			t.Fatalf("hook must use positional indexing:\n%s", script)
 		}
 	}
 	if strings.Contains(script, `local -a`) {
 		t.Fatalf("shared hook must not use bash arrays:\n%s", script)
 	}
-	if !strings.Contains(script, `__ezp_bool_false`) {
+	if !strings.Contains(script, `__eps_bool_false`) {
 		t.Fatalf("hook must parse bool assignments:\n%s", script)
 	}
 	if !strings.Contains(script, `[=]*`) {
@@ -36,48 +36,48 @@ func TestHookScriptPreservesBinaryStatus(t *testing.T) {
 }
 
 func TestPosixHookIsDashSafe(t *testing.T) {
-	script, err := shell.HookScript(shell.Posix, "/usr/bin/ezp")
+	script, err := shell.HookScript(shell.Posix, "/usr/bin/eps")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(script, `local -a`) || strings.Contains(script, `local `) {
 		t.Fatalf("posix hook must avoid local/arrays:\n%s", script)
 	}
-	zsh, err := shell.HookScript(shell.Zsh, "/usr/bin/ezp")
+	zsh, err := shell.HookScript(shell.Zsh, "/usr/bin/eps")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Same family as bash/posix: shared 1-based positional scanner.
-	if !strings.Contains(zsh, `__ezp_scan`) {
+	if !strings.Contains(zsh, `__eps_scan`) {
 		t.Fatalf("zsh hook should share posix scanner:\n%s", zsh)
 	}
 }
 
 func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
-	fish, err := shell.HookScript(shell.Fish, "/usr/bin/ezp")
+	fish, err := shell.HookScript(shell.Fish, "/usr/bin/eps")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(fish, "--shell fish") {
 		t.Fatalf("fish hook must pass --shell fish:\n%s", fish)
 	}
-	if !strings.Contains(fish, `__ezp_scan`) {
+	if !strings.Contains(fish, `__eps_scan`) {
 		t.Fatalf("fish hook must scan globals before on/off:\n%s", fish)
 	}
-	if !strings.Contains(fish, `__ezp_bool_false`) {
+	if !strings.Contains(fish, `__eps_bool_false`) {
 		t.Fatalf("fish hook must parse bool assignments:\n%s", fish)
 	}
-	ps, err := shell.HookScript(shell.PowerShell, `C:\ezp.exe`)
+	ps, err := shell.HookScript(shell.PowerShell, `C:\eps.exe`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(ps, "--shell") || !strings.Contains(ps, "powershell") {
 		t.Fatalf("powershell hook must pass --shell powershell:\n%s", ps)
 	}
-	if !strings.Contains(ps, "Get-EzpExecForward") {
+	if !strings.Contains(ps, "Get-EpsExecForward") {
 		t.Fatalf("powershell hook must place -- after exec flags:\n%s", ps)
 	}
-	if !strings.Contains(ps, "Get-EzpScan") {
+	if !strings.Contains(ps, "Get-EpsScan") {
 		t.Fatalf("powershell hook must scan globals before on/off:\n%s", ps)
 	}
 	if !strings.Contains(ps, `--quiet=*`) || !strings.Contains(ps, `-q=*`) {
@@ -86,14 +86,14 @@ func TestFishAndPowerShellEmitShellFlag(t *testing.T) {
 }
 
 func TestNuHookUsesJSON(t *testing.T) {
-	script, err := shell.HookScript(shell.Nu, "/usr/local/bin/ezp")
+	script, err := shell.HookScript(shell.Nu, "/usr/local/bin/eps")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(script, "let bin = `/usr/local/bin/ezp`") {
+	if strings.Contains(script, "let bin = `/usr/local/bin/eps`") {
 		t.Fatalf("nuQuote must not use backticks: %s", script)
 	}
-	if !strings.Contains(script, `let bin = "/usr/local/bin/ezp"`) {
+	if !strings.Contains(script, `let bin = "/usr/local/bin/eps"`) {
 		t.Fatalf("expected string literal bin: %s", script)
 	}
 	if !strings.Contains(script, "--json | complete") {
@@ -173,18 +173,18 @@ func TestEmitExportAndUnset(t *testing.T) {
 
 func TestHookScriptAllShells(t *testing.T) {
 	for _, kind := range []shell.Kind{shell.Bash, shell.Zsh, shell.Posix, shell.Fish, shell.PowerShell, shell.Nu} {
-		script, err := shell.HookScript(kind, "/usr/local/bin/ezp")
+		script, err := shell.HookScript(kind, "/usr/local/bin/eps")
 		if err != nil {
 			t.Fatalf("%s: %v", kind, err)
 		}
-		if !strings.Contains(script, "/usr/local/bin/ezp") {
+		if !strings.Contains(script, "/usr/local/bin/eps") {
 			t.Fatalf("%s missing bin path: %s", kind, script)
 		}
 		if !strings.Contains(script, "on") || !strings.Contains(script, "off") {
 			t.Fatalf("%s missing on/off: %s", kind, script)
 		}
 	}
-	if _, err := shell.HookScript(shell.Cmd, "ezp"); err == nil {
+	if _, err := shell.HookScript(shell.Cmd, "eps"); err == nil {
 		t.Fatal("cmd hook should fail")
 	}
 }

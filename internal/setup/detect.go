@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 )
 
 // DiscoverTargets decides which rc/profile files to modify.
@@ -236,7 +236,7 @@ func primaryPaths(kind shell.Kind, home string) []string {
 		}
 		return paths
 	case shell.Cmd:
-		// cmd.exe has no portable profile; users should use PowerShell or ezp exec.
+		// cmd.exe has no portable profile; users should use PowerShell or eps exec.
 		return nil
 	default:
 		return nil
@@ -334,8 +334,8 @@ func ExplainDetection() string {
   1. login shell = $SHELL, else getent/dscl account lookup (current: %q)
   2. existing rc/profile files among: .zshrc .bashrc .bash_profile .profile fish config.nu powershell profile
   3. PowerShell profiles: always on Windows; on Unix only if profile already exists
-  4. override with: ezp setup --shell zsh --shell bash
-  5. skip rc edits with: ezp setup --no-modify-rc
+  4. override with: eps setup --shell zsh --shell bash
+  5. skip rc edits with: eps setup --no-modify-rc
   note: curl|bash does NOT mean your login shell is bash — we ignore the installer interpreter
 `, loginShell())
 }

@@ -4,10 +4,10 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/doctor"
-	"github.com/drswith/easy-proxy-cli/internal/proxy"
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/doctor"
+	"github.com/drswith/easy-proxy-switch-cli/internal/proxy"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 	tomllib "github.com/pelletier/go-toml/v2"
 )
 

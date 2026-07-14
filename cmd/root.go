@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
-	"github.com/drswith/easy-proxy-cli/internal/output"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -20,15 +20,15 @@ var (
 
 func newRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "ezp",
-		Short: "Easy temporary proxy environment variables (agent-first CLI)",
-		Long: `ezp quickly enables/disables proxy-related environment variables.
+		Use:   "eps",
+		Short: "Easy proxy on/off for shell env (agent-first CLI)",
+		Long: `eps quickly enables/disables proxy-related environment variables.
 
 IMPORTANT: a child process cannot export into your current shell.
 Use one of:
-  eval "$(ezp on --emit)"
-  eval "$(ezp hook zsh)"   # then plain: ezp on / ezp off
-  ezp exec -- curl https://example.com
+  eval "$(eps on --emit)"
+  eval "$(eps hook zsh)"   # then plain: eps on / eps off
+  eps exec -- curl https://example.com
 
 Designed for AI agents and humans: stable exit codes, --json, schema.`,
 		SilenceUsage:  true,

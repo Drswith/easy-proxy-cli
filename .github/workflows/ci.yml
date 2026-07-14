@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p bin
-          go build -o bin/ezp ./cmd/ezp
+          go build -o bin/eps ./cmd/eps
 
   e2e:
     name: e2e (ubuntu)

@@ -8,17 +8,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
 	"github.com/pelletier/go-toml/v2"
 )
 
 const (
-	DirName       = ".easy-proxy"
+	DirName       = ".easy-proxy-switch"
 	ConfigName    = "config.toml"
 	ConfigVersion = 1
 )
 
-// Config is the on-disk ~/.easy-proxy/config.toml schema.
+// Config is the on-disk ~/.easy-proxy-switch/config.toml schema.
 type Config struct {
 	Version        int                `toml:"version" json:"version"`
 	DefaultProfile string             `toml:"default_profile" json:"default_profile"`
@@ -83,7 +83,7 @@ func Default() Config {
 }
 
 func Dir() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("EASY_PROXY_HOME")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("EPS_HOME")); v != "" {
 		return expandHome(v), nil
 	}
 	home, err := os.UserHomeDir()

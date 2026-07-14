@@ -7,13 +7,13 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 )
 
 const (
-	MarkerBegin = "# >>> easy-proxy-cli >>>"
-	MarkerEnd   = "# <<< easy-proxy-cli <<<"
+	MarkerBegin = "# >>> easy-proxy-switch-cli >>>"
+	MarkerEnd   = "# <<< easy-proxy-switch-cli <<<"
 )
 
 // Target is one shell rc/profile file to modify.
@@ -28,7 +28,7 @@ type Target struct {
 type Options struct {
 	// Shells limits targets to these kinds (e.g. "zsh", "bash"). Empty = auto.
 	Shells []string
-	// BinPath is the ezp binary path embedded in hooks. Empty = look up executable.
+	// BinPath is the eps binary path embedded in hooks. Empty = look up executable.
 	BinPath string
 	// AllDetected writes to $SHELL target plus every existing supported rc.
 	// Default true.
@@ -39,7 +39,7 @@ type Options struct {
 	DryRun bool
 	// Uninstall removes managed blocks instead of writing them.
 	Uninstall bool
-	// InitConfig writes default ~/.easy-proxy/config.toml if missing.
+	// InitConfig writes default ~/.easy-proxy-switch/config.toml if missing.
 	InitConfig bool
 }
 
@@ -64,7 +64,7 @@ func Run(opt Options) (Result, error) {
 	if bin == "" {
 		exe, err := os.Executable()
 		if err != nil {
-			bin = "ezp"
+			bin = "eps"
 		} else {
 			bin, _ = filepath.Abs(exe)
 		}
@@ -269,7 +269,7 @@ func stripBlock(content string) (string, bool, error) {
 	}
 	end := strings.Index(content[start:], MarkerEnd)
 	if end < 0 {
-		return content, false, fmt.Errorf("incomplete easy-proxy-cli block (missing end marker); refusing to modify")
+		return content, false, fmt.Errorf("incomplete easy-proxy-switch-cli block (missing end marker); refusing to modify")
 	}
 	end = start + end + len(MarkerEnd)
 	// swallow trailing newline
@@ -291,11 +291,11 @@ func validateMarkers(content string) error {
 	}
 	if begins == 1 && ends == 1 {
 		if strings.Index(content, MarkerBegin) > strings.Index(content, MarkerEnd) {
-			return fmt.Errorf("invalid easy-proxy-cli markers (end before begin); refusing to modify")
+			return fmt.Errorf("invalid easy-proxy-switch-cli markers (end before begin); refusing to modify")
 		}
 		return nil
 	}
-	return fmt.Errorf("invalid easy-proxy-cli markers (begin=%d end=%d); refusing to modify", begins, ends)
+	return fmt.Errorf("invalid easy-proxy-switch-cli markers (begin=%d end=%d); refusing to modify", begins, ends)
 }
 
 func extractBlock(content string) (before string, block string, ok bool) {

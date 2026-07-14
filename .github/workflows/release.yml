@@ -91,22 +91,22 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          LDFLAGS="-s -w -X github.com/drswith/easy-proxy-cli/cmd.version=${VERSION#v} -X github.com/drswith/easy-proxy-cli/cmd.commit=${COMMIT}"
+          LDFLAGS="-s -w -X github.com/drswith/easy-proxy-switch-cli/cmd.version=${VERSION#v} -X github.com/drswith/easy-proxy-switch-cli/cmd.commit=${COMMIT}"
           build() {
             local goos="$1" goarch="$2" out="$3"
             echo "-> ${out}"
             GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
-              go build -trimpath -ldflags "$LDFLAGS" -o "dist/${out}" ./cmd/ezp
+              go build -trimpath -ldflags "$LDFLAGS" -o "dist/${out}" ./cmd/eps
           }
-          build darwin arm64 ezp-darwin-arm64
-          build darwin amd64 ezp-darwin-amd64
-          build linux  amd64 ezp-linux-amd64
-          build linux  arm64 ezp-linux-arm64
-          build windows amd64 ezp-windows-amd64.exe
-          build windows arm64 ezp-windows-arm64.exe
+          build darwin arm64 eps-darwin-arm64
+          build darwin amd64 eps-darwin-amd64
+          build linux  amd64 eps-linux-amd64
+          build linux  arm64 eps-linux-arm64
+          build windows amd64 eps-windows-amd64.exe
+          build windows arm64 eps-windows-arm64.exe
           (
             cd dist
-            sha256sum ezp-* > checksums.txt
+            sha256sum eps-* > checksums.txt
           )
           ls -la dist
 
@@ -117,12 +117,12 @@ jobs:
           name: ${{ steps.ref.outputs.version }}
           generate_release_notes: true
           files: |
-            dist/ezp-darwin-arm64
-            dist/ezp-darwin-amd64
-            dist/ezp-linux-amd64
-            dist/ezp-linux-arm64
-            dist/ezp-windows-amd64.exe
-            dist/ezp-windows-arm64.exe
+            dist/eps-darwin-arm64
+            dist/eps-darwin-amd64
+            dist/eps-linux-amd64
+            dist/eps-linux-arm64
+            dist/eps-windows-amd64.exe
+            dist/eps-windows-arm64.exe
             dist/checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

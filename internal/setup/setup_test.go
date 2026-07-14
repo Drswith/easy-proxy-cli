@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 )
 
 func TestUpsertAndStripBlock(t *testing.T) {
@@ -57,7 +57,7 @@ func TestWriteHookRoundTrip(t *testing.T) {
 	if err := os.WriteFile(path, []byte("# myrc\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	block := wrapBlock(shell.Zsh, "ezp() { :; }\n")
+	block := wrapBlock(shell.Zsh, "eps() { :; }\n")
 	action, err := writeHook(path, block, false, true)
 	if err != nil || action != "updated" {
 		t.Fatalf("action=%s err=%v", action, err)
@@ -73,7 +73,7 @@ func TestWriteHookRoundTrip(t *testing.T) {
 }
 
 func TestIncompleteBlockRefused(t *testing.T) {
-	broken := MarkerBegin + "\nezp() { :; }\n# user stuff\n"
+	broken := MarkerBegin + "\neps() { :; }\n# user stuff\n"
 	_, _, err := stripBlock(broken)
 	if err == nil {
 		t.Fatal("expected incomplete block error")
@@ -126,7 +126,7 @@ func TestCreateMissingFalseDoesNotCreate(t *testing.T) {
 	missing := filepath.Join(home, ".zshrc")
 	res, err := Run(Options{
 		Shells:        []string{"zsh"},
-		BinPath:       "/tmp/fake-ezp",
+		BinPath:       "/tmp/fake-eps",
 		CreateMissing: false,
 		InitConfig:    false,
 	})
@@ -160,7 +160,7 @@ func TestRunReturnsErrorOnTargetFailure(t *testing.T) {
 	}
 	_, err := Run(Options{
 		Shells:        []string{"zsh"},
-		BinPath:       "/tmp/fake-ezp",
+		BinPath:       "/tmp/fake-eps",
 		CreateMissing: true,
 		InitConfig:    false,
 	})

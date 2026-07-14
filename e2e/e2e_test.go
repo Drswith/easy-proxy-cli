@@ -16,18 +16,18 @@ func TestMain(m *testing.M) {
 	root := findRepoRoot()
 	binDir := filepath.Join(root, "bin")
 	_ = os.MkdirAll(binDir, 0o755)
-	bin := filepath.Join(binDir, "ezp-e2e")
+	bin := filepath.Join(binDir, "eps-e2e")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/ezp")
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/eps")
 	cmd.Dir = root
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		os.Exit(1)
 	}
-	os.Setenv("EZP_E2E_BIN", bin)
+	os.Setenv("EPS_E2E_BIN", bin)
 	os.Exit(m.Run())
 }
 
@@ -44,7 +44,7 @@ func findRepoRoot() string {
 }
 
 func bin() string {
-	return os.Getenv("EZP_E2E_BIN")
+	return os.Getenv("EPS_E2E_BIN")
 }
 
 func run(t *testing.T, env []string, args ...string) (string, string, error) {
@@ -64,7 +64,7 @@ func homeEnv(home, cfg string, extra ...string) []string {
 	env := []string{
 		"HOME=" + home,
 		"USERPROFILE=" + home,
-		"EASY_PROXY_HOME=" + cfg,
+		"EPS_HOME=" + cfg,
 		"XDG_CONFIG_HOME=",
 		"ZDOTDIR=",
 	}
@@ -123,7 +123,7 @@ func TestE2ECoreFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, `"name": "ezp"`) && !strings.Contains(out, `"name":"ezp"`) {
+	if !strings.Contains(out, `"name": "eps"`) && !strings.Contains(out, `"name":"eps"`) {
 		t.Fatalf("schema: %s", out)
 	}
 }
@@ -135,7 +135,7 @@ func TestE2ESetupHookShells(t *testing.T) {
 
 	type shellCase struct {
 		name   string
-		shell  string // ezp setup --shell
+		shell  string // eps setup --shell
 		interp string // interpreter to run
 		rcRel  string
 		source string // how to load the rc in the interpreter
@@ -173,7 +173,7 @@ func TestE2ESetupHookShells(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(data), "easy-proxy-cli") {
+			if !strings.Contains(string(data), "easy-proxy-switch-cli") {
 				t.Fatalf("rc not patched: %s", data)
 			}
 
@@ -181,42 +181,42 @@ func TestE2ESetupHookShells(t *testing.T) {
 			switch tc.name {
 			case "fish":
 				script = tc.source + `
-ezp on >/dev/null; or exit $status
+eps on >/dev/null; or exit $status
 test -n "$http_proxy"; or exit 1
-ezp -q on >/dev/null; or exit $status
+eps -q on >/dev/null; or exit $status
 test -n "$http_proxy"; or exit 1
-ezp off >/dev/null; or exit $status
+eps off >/dev/null; or exit $status
 not set -q http_proxy; or exit 1
-ezp on --json >/dev/null; or exit $status
+eps on --json >/dev/null; or exit $status
 `
 			case "zsh":
 				script = `
 set -e
 ` + tc.source + `
-ezp on >/dev/null
+eps on >/dev/null
 test -n "$http_proxy"
-ezp -q on >/dev/null
+eps -q on >/dev/null
 test -n "$http_proxy"
-ezp on -qj=false >/dev/null
+eps on -qj=false >/dev/null
 test -n "$http_proxy"
-ezp off >/dev/null
+eps off >/dev/null
 test -z "${http_proxy:-}"
-out="$(ezp on --json)"
+out="$(eps on --json)"
 print -r -- "$out" | grep -q '"key"'
 `
 			default: // bash, dash
 				script = `
 set -e
 ` + tc.source + `
-ezp on >/dev/null
+eps on >/dev/null
 test -n "$http_proxy"
-ezp -q on >/dev/null
+eps -q on >/dev/null
 test -n "$http_proxy"
-ezp on -qj=false >/dev/null
+eps on -qj=false >/dev/null
 test -n "$http_proxy"
-ezp off >/dev/null
+eps off >/dev/null
 test -z "${http_proxy:-}"
-out="$(ezp on --json)"
+out="$(eps on --json)"
 printf '%s\n' "$out" | grep -q '"key"'
 `
 			}
@@ -304,20 +304,20 @@ func TestE2ESetupHookPowerShell(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hookFile := filepath.Join(home, "ezp-hook.ps1")
+	hookFile := filepath.Join(home, "eps-hook.ps1")
 	if err := os.WriteFile(hookFile, []byte(hookOut), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	script := `
 $ErrorActionPreference = 'Stop'
 . '` + hookFile + `'
-ezp on
+eps on
 if (-not $env:http_proxy) { throw 'http_proxy missing after on' }
-ezp -q on
+eps -q on
 if (-not $env:http_proxy) { throw 'http_proxy missing after -q on' }
-ezp off
+eps off
 if ($env:http_proxy) { throw 'http_proxy still set after off' }
-$json = ezp on --json | Out-String
+$json = eps on --json | Out-String
 if ($json -notmatch '"key"') { throw 'json missing key' }
 `
 	cmd := exec.Command(pwsh, "-NoProfile", "-Command", script)
@@ -335,7 +335,7 @@ func TestE2ESetupHookNu(t *testing.T) {
 	home := t.TempDir()
 	cfg := t.TempDir()
 	env := homeEnv(home, cfg,
-		// Inherited uppercase aliases must not survive ezp on (Nu prefers lowercase).
+		// Inherited uppercase aliases must not survive eps on (Nu prefers lowercase).
 		"HTTP_PROXY=http://stale.example:9",
 		"HTTPS_PROXY=http://stale.example:9",
 		"ALL_PROXY=socks5://stale.example:9",
@@ -344,21 +344,21 @@ func TestE2ESetupHookNu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hookFile := filepath.Join(home, "ezp-hook.nu")
+	hookFile := filepath.Join(home, "eps-hook.nu")
 	if err := os.WriteFile(hookFile, []byte(hookOut), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	script := `
 source '` + hookFile + `'
-ezp on
+eps on
 if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after on"} }
 if ($env.http_proxy | str contains "stale.example") { error make {msg: "stale lowercase proxy survived"} }
 # Child processes must not see the inherited uppercase stale values.
 let child = (^env | complete)
 if ($child.stdout | str contains "stale.example") { error make {msg: $"stale uppercase survived in child env: ($child.stdout)"} }
-ezp -q on
+eps -q on
 if ($env.http_proxy? | default "") == "" { error make {msg: "http_proxy missing after -q on"} }
-ezp off
+eps off
 if ($env.http_proxy? | default "") != "" { error make {msg: "http_proxy still set after off"} }
 `
 	cmd := exec.Command("nu", "--no-config-file", "-c", script)
@@ -388,7 +388,7 @@ func TestE2EBashHookPropagatesFailure(t *testing.T) {
 set -e
 source "$HOME/.bashrc"
 set +e
-ezp on --profile does-not-exist >/dev/null 2>&1
+eps on --profile does-not-exist >/dev/null 2>&1
 status=$?
 test "$status" -ne 0
 `

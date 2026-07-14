@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/proxy"
-	"github.com/drswith/easy-proxy-cli/internal/shell"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/proxy"
+	"github.com/drswith/easy-proxy-switch-cli/internal/shell"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ func resolveFlags(cmd *cobra.Command) (proxy.ResolveOptions, error) {
 }
 
 func addResolveFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP("profile", "p", "", "profile name from ~/.easy-proxy/config.toml")
+	cmd.Flags().StringP("profile", "p", "", "profile name from ~/.easy-proxy-switch/config.toml")
 	cmd.Flags().String("http", "", "override HTTP proxy URL")
 	cmd.Flags().String("https", "", "override HTTPS proxy URL")
 	cmd.Flags().String("socks", "", "override SOCKS/all_proxy URL")
@@ -76,10 +76,10 @@ func newOnCmd() *cobra.Command {
 		Long: `Resolve proxy settings and emit shell export statements on stdout.
 
 Examples:
-  eval "$(ezp on --emit)"
-  ezp on --emit --host 127.0.0.1 --port 7890
-  ezp on --json                 # agent: resolved env as JSON (no shell script)
-  ezp on --profile company --emit`,
+  eval "$(eps on --emit)"
+  eps on --emit --host 127.0.0.1 --port 7890
+  eps on --json                 # agent: resolved env as JSON (no shell script)
+  eps on --profile company --emit`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			emit, _ := cmd.Flags().GetBool("emit")
 			cfg, err := config.LoadOrCreate()
@@ -108,7 +108,7 @@ Examples:
 			}
 
 			if !emit {
-				hint("tip: run eval \"$(ezp on --emit)\" or install hook: eval \"$(ezp hook zsh)\"")
+				hint("tip: run eval \"$(eps on --emit)\" or install hook: eval \"$(eps hook zsh)\"")
 				hint("enabled profile=%s mode=%s (showing exports; not applied to this process)", resolved.Profile, resolved.Mode)
 			}
 
@@ -151,7 +151,7 @@ func newOffCmd() *cobra.Command {
 				})
 			}
 			if !emit {
-				hint("tip: run eval \"$(ezp off --emit)\" or use the shell hook")
+				hint("tip: run eval \"$(eps off --emit)\" or use the shell hook")
 			}
 			kind, err := shell.Detect(flagShell)
 			if err != nil {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/proxy"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/proxy"
 )
 
 func TestResolveDefaultMixed(t *testing.T) {

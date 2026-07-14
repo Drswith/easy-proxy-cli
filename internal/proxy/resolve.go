@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
-	"github.com/drswith/easy-proxy-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
 )
 
 // EnvMap is an ordered-friendly map of proxy-related environment variables.
@@ -154,7 +154,7 @@ func Resolve(cfg config.Config, opt ResolveOptions) (Resolved, error) {
 	}, nil
 }
 
-// OffKeys returns names that ezp manages (for unset).
+// OffKeys returns names that eps manages (for unset).
 func OffKeys(mirrorUppercase, node bool) []string {
 	keys := []string{
 		"http_proxy", "https_proxy", "all_proxy", "no_proxy",

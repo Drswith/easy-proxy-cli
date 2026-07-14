@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/drswith/easy-proxy-cli/internal/doctor"
+	"github.com/drswith/easy-proxy-switch-cli/internal/doctor"
 )
 
 func TestTCPCheckDefaultPort(t *testing.T) {

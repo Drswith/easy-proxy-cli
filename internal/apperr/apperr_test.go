@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
 )
 
 func TestMisconfig(t *testing.T) {
