@@ -42,6 +42,37 @@ curl -fsSL .../install.sh | bash -s -- --no-modify-rc
 curl -fsSL .../install.sh | bash -s -- --shell zsh --shell bash
 ```
 
+### One-line uninstall
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/uninstall.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/uninstall.ps1 | iex
+```
+
+The uninstaller: removes shell hooks → deletes the binary. Config under `~/.easy-proxy-switch` is **kept** by default.
+
+Common options:
+
+```bash
+# Also remove the config directory
+curl -fsSL .../uninstall.sh | bash -s -- --purge
+
+# Remove binary only; do not edit rc files
+curl -fsSL .../uninstall.sh | bash -s -- --no-modify-rc
+
+# Remove hooks from specific shells only
+curl -fsSL .../uninstall.sh | bash -s -- --shell zsh
+```
+
+If `eps` is still installed: `eps setup --uninstall`.
+
 ### From source
 
 ```bash
