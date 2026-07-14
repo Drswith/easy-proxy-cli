@@ -6,12 +6,12 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
 )
 
 func TestSaveUsesPrivatePerms(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	if err := config.Save(config.Default()); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestDefaultAndProfile(t *testing.T) {
 
 func TestLoadMissingReturnsDefault(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestLoadMissingReturnsDefault(t *testing.T) {
 
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 
 	cfg := config.Default()
 	cfg.DefaultProfile = "corp"
@@ -108,7 +108,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 
 func TestLoadOrCreate(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	cfg, err := config.LoadOrCreate()
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestLoadOrCreate(t *testing.T) {
 
 func TestExpandHomeAndDir(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	got, err := config.Dir()
 	if err != nil {
 		t.Fatal(err)

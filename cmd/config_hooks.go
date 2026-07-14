@@ -5,16 +5,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/output"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Read/write ~/.easy-proxy/config.toml",
+		Short: "Read/write ~/.easy-proxy-switch/config.toml",
 	}
 
 	initCmd := &cobra.Command{
@@ -162,19 +162,19 @@ func encodeTOML(cfg config.Config) (string, error) {
 func newHookCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "hook <shell>",
-		Short: "Print shell integration so `ezp on|off` mutates the current shell",
+		Short: "Print shell integration so `eps on|off` mutates the current shell",
 		Long: `Add to your shell rc:
 
   # zsh
-  eval "$(ezp hook zsh)"
+  eval "$(eps hook zsh)"
 
   # bash
-  eval "$(ezp hook bash)"
+  eval "$(eps hook bash)"
 
   # fish
-  ezp hook fish | source
+  eps hook fish | source
 
-Then: ezp on / ezp off work without eval.`,
+Then: eps on / eps off work without eval.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kind, err := shellDetect(args[0])
@@ -183,7 +183,7 @@ Then: ezp on / ezp off work without eval.`,
 			}
 			bin, err := os.Executable()
 			if err != nil {
-				bin = "ezp"
+				bin = "eps"
 			}
 			script, err := hookScript(kind, bin)
 			if err != nil {
@@ -292,9 +292,9 @@ func newSchemaCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			schema := map[string]any{
-				"name":        "ezp",
+				"name":        "eps",
 				"version":     version,
-				"config_path": "~/.easy-proxy/config.toml",
+				"config_path": "~/.easy-proxy-switch/config.toml",
 				"exit_codes": map[string]int{
 					"ok":          output.ExitOK,
 					"error":       output.ExitError,
@@ -304,21 +304,21 @@ func newSchemaCmd() *cobra.Command {
 				"conventions": map[string]string{
 					"stdout":      "shell scripts, JSON payloads, command results",
 					"stderr":      "human hints (suppressed by --json / --quiet)",
-					"shell_apply": "eval \"$(ezp on --emit)\" or eval \"$(ezp hook <shell>)\"",
+					"shell_apply": "eval \"$(eps on --emit)\" or eval \"$(eps hook <shell>)\"",
 					"env_json":    "env fields are [{key,value},...] (case-safe for PowerShell)",
 				},
 				"commands": []map[string]any{
-					{"name": "on", "desc": "emit exports", "agent": "ezp on --json | ezp on --emit"},
-					{"name": "off", "desc": "emit unset", "agent": "ezp off --json | ezp off --emit"},
-					{"name": "status", "desc": "current process env", "agent": "ezp status --json"},
-					{"name": "env", "desc": "resolved env dump", "agent": "ezp env --format=json"},
-					{"name": "exec", "desc": "run child with proxy", "agent": "ezp exec -- curl -I https://example.com"},
-					{"name": "doctor", "desc": "reachability", "agent": "ezp doctor --json"},
-					{"name": "config", "desc": "read/write config", "agent": "ezp config show --json"},
-					{"name": "profiles", "desc": "list profiles", "agent": "ezp profiles --json"},
-					{"name": "setup", "desc": "install config + shell hooks", "agent": "ezp setup --json"},
-					{"name": "hook", "desc": "shell integration", "agent": "ezp hook zsh"},
-					{"name": "schema", "desc": "this schema", "agent": "ezp schema"},
+					{"name": "on", "desc": "emit exports", "agent": "eps on --json | eps on --emit"},
+					{"name": "off", "desc": "emit unset", "agent": "eps off --json | eps off --emit"},
+					{"name": "status", "desc": "current process env", "agent": "eps status --json"},
+					{"name": "env", "desc": "resolved env dump", "agent": "eps env --format=json"},
+					{"name": "exec", "desc": "run child with proxy", "agent": "eps exec -- curl -I https://example.com"},
+					{"name": "doctor", "desc": "reachability", "agent": "eps doctor --json"},
+					{"name": "config", "desc": "read/write config", "agent": "eps config show --json"},
+					{"name": "profiles", "desc": "list profiles", "agent": "eps profiles --json"},
+					{"name": "setup", "desc": "install config + shell hooks", "agent": "eps setup --json"},
+					{"name": "hook", "desc": "shell integration", "agent": "eps hook zsh"},
+					{"name": "schema", "desc": "this schema", "agent": "eps schema"},
 				},
 				"config": config.Default(),
 				"shells": []string{"bash", "zsh", "sh", "fish", "powershell", "nu"},

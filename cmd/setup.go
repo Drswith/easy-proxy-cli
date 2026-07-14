@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/drswith/easy-proxy-cli/internal/setup"
+	"github.com/drswith/easy-proxy-switch-cli/internal/setup"
 	"github.com/spf13/cobra"
 )
 
@@ -16,13 +16,13 @@ func newSetupCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Long: `Install default config and inject idempotent shell hooks into rc/profile files.
 
-Detection policy (see also: ezp setup --explain):
+Detection policy (see also: eps setup --explain):
   1. Prefer $SHELL (login shell) — NOT the interpreter running curl|bash
   2. Also update any existing supported rc/profile files
   3. Include PowerShell profiles when pwsh/powershell is available
   4. Override with repeated --shell flags
 
-After setup, open a new terminal (or source your rc), then: ezp on`,
+After setup, open a new terminal (or source your rc), then: eps on`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			explain, _ := cmd.Flags().GetBool("explain")
 			if explain {
@@ -68,12 +68,12 @@ After setup, open a new terminal (or source your rc), then: ezp on`,
 
 	cmd.Flags().Bool("explain", false, "print shell detection policy and exit")
 	cmd.Flags().Bool("no-modify-rc", false, "only init config; do not edit shell rc/profile files")
-	cmd.Flags().Bool("uninstall", false, "remove easy-proxy-cli hook blocks from rc files")
+	cmd.Flags().Bool("uninstall", false, "remove easy-proxy-switch-cli hook blocks from rc files")
 	cmd.Flags().Bool("dry-run", false, "show what would change without writing")
-	cmd.Flags().Bool("init-config", true, "create ~/.easy-proxy/config.toml if missing")
+	cmd.Flags().Bool("init-config", true, "create ~/.easy-proxy-switch/config.toml if missing")
 	cmd.Flags().Bool("create-missing", true, "create rc/profile files when missing")
 	cmd.Flags().StringSlice("shell", nil, "only configure these shells (repeatable): zsh,bash,fish,sh,powershell,nu")
-	cmd.Flags().String("bin", "", "ezp binary path to embed in hooks (default: this executable)")
+	cmd.Flags().String("bin", "", "eps binary path to embed in hooks (default: this executable)")
 	return cmd
 }
 

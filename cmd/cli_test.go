@@ -11,10 +11,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/cmd"
-	"github.com/drswith/easy-proxy-cli/internal/apperr"
-	"github.com/drswith/easy-proxy-cli/internal/config"
-	"github.com/drswith/easy-proxy-cli/internal/output"
+	"github.com/drswith/easy-proxy-switch-cli/cmd"
+	"github.com/drswith/easy-proxy-switch-cli/internal/apperr"
+	"github.com/drswith/easy-proxy-switch-cli/internal/config"
+	"github.com/drswith/easy-proxy-switch-cli/internal/output"
 )
 
 func capture(t *testing.T, args ...string) (stdout, stderr string, err error) {
@@ -27,7 +27,7 @@ func capture(t *testing.T, args ...string) (stdout, stderr string, err error) {
 		os.Stdout, os.Stderr = oldOut, oldErr
 	}()
 
-	// Read pipes concurrently to avoid deadlock when a child (ezp exec)
+	// Read pipes concurrently to avoid deadlock when a child (eps exec)
 	// writes enough output to fill the OS pipe buffer.
 	var bo, be bytes.Buffer
 	var wg sync.WaitGroup
@@ -51,7 +51,7 @@ func setTestHome(t *testing.T, home string) {
 
 func TestOffClearsUppercaseByDefault(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	// Config with uppercase mirroring disabled should not affect off defaults.
 	cfg := config.Default()
 	cfg.Extras.MirrorUppercase = false
@@ -72,7 +72,7 @@ func TestOffClearsUppercaseByDefault(t *testing.T) {
 
 func TestMisconfigExitCode(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	err := cmd.ExecuteArgs([]string{"on", "--mode", "invalid", "--quiet"})
 	if err == nil {
 		t.Fatal("expected error")
@@ -100,7 +100,7 @@ func TestCobraUsageIsMisconfig(t *testing.T) {
 
 func TestNoArgsRejectExtraPositional(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	for _, args := range [][]string{
 		{"on", "typo"},
 		{"off", "typo"},
@@ -129,7 +129,7 @@ func TestNoArgsRejectExtraPositional(t *testing.T) {
 
 func TestAppOptionErrorsAreMisconfig(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	for _, args := range [][]string{
 		{"env", "--format", "nope"},
 		{"on", "--shell", "invalid"},
@@ -156,14 +156,14 @@ func TestSchemaJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &m); err != nil {
 		t.Fatal(err)
 	}
-	if m["name"] != "ezp" {
+	if m["name"] != "eps" {
 		t.Fatalf("%v", m)
 	}
 }
 
 func TestOnEmitAndJSON(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	out, _, err := capture(t, "on", "--emit", "--quiet")
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +216,7 @@ func TestOnEmitAndJSON(t *testing.T) {
 
 func TestOffEmit(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	out, _, err := capture(t, "off", "--emit", "--quiet")
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ func TestOffEmit(t *testing.T) {
 
 func TestEnvFormats(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	out, _, err := capture(t, "env", "--format=dotenv")
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +254,7 @@ func TestEnvFormats(t *testing.T) {
 
 func TestConfigLifecycle(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	out, _, err := capture(t, "config", "init")
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +284,7 @@ func TestConfigLifecycle(t *testing.T) {
 
 func TestHookAndSetupDryRun(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	home := t.TempDir()
 	setTestHome(t, home)
 	t.Setenv("SHELL", "/bin/zsh")
@@ -293,7 +293,7 @@ func TestHookAndSetupDryRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "ezp()") {
+	if !strings.Contains(out, "eps()") {
 		t.Fatalf("%s", out)
 	}
 
@@ -313,7 +313,7 @@ func TestHookAndSetupDryRun(t *testing.T) {
 
 func TestSetupWritesAndUninstalls(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	home := t.TempDir()
 	setTestHome(t, home)
 	t.Setenv("SHELL", "/bin/zsh")
@@ -322,7 +322,7 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err := capture(t, "setup", "--shell", "zsh", "--bin", "/tmp/fake-ezp")
+	_, _, err := capture(t, "setup", "--shell", "zsh", "--bin", "/tmp/fake-eps")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +331,7 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(data)
-	if !strings.Contains(body, "easy-proxy-cli") || !strings.Contains(body, "# keep") {
+	if !strings.Contains(body, "easy-proxy-switch-cli") || !strings.Contains(body, "# keep") {
 		t.Fatalf("%s", body)
 	}
 
@@ -343,14 +343,14 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "easy-proxy-cli") {
+	if strings.Contains(string(data), "easy-proxy-switch-cli") {
 		t.Fatalf("hook not removed: %s", data)
 	}
 }
 
 func TestStatusAndExec(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	t.Setenv("http_proxy", "http://example:1")
 	out, _, err := capture(t, "status", "--json")
 	if err != nil {
@@ -400,7 +400,7 @@ func TestStatusAndExec(t *testing.T) {
 
 func TestOnHostPortOverride(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("EASY_PROXY_HOME", dir)
+	t.Setenv("EPS_HOME", dir)
 	out, _, err := capture(t, "on", "--json", "--host", "10.0.0.2", "--port", "8888", "--no-node")
 	if err != nil {
 		t.Fatal(err)

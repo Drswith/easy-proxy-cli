@@ -1,17 +1,17 @@
 .PHONY: build install test test-unit test-e2e test-all test-docker fmt vet clean release
 
-BINARY := ezp
+BINARY := eps
 OUT := bin/$(BINARY)
 VERSION ?= 0.1.0
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
-LDFLAGS := -ldflags "-X github.com/drswith/easy-proxy-cli/cmd.version=$(VERSION) -X github.com/drswith/easy-proxy-cli/cmd.commit=$(COMMIT)"
+LDFLAGS := -ldflags "-X github.com/drswith/easy-proxy-switch-cli/cmd.version=$(VERSION) -X github.com/drswith/easy-proxy-switch-cli/cmd.commit=$(COMMIT)"
 
 build:
 	mkdir -p bin
-	go build $(LDFLAGS) -o $(OUT) ./cmd/ezp
+	go build $(LDFLAGS) -o $(OUT) ./cmd/eps
 
 install:
-	go install $(LDFLAGS) ./cmd/ezp
+	go install $(LDFLAGS) ./cmd/eps
 
 test: test-unit
 
@@ -40,10 +40,10 @@ clean:
 # Cross-compile release artifacts (consumed by scripts/install.sh / install.ps1)
 release:
 	mkdir -p dist
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 ./cmd/ezp
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 ./cmd/ezp
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 ./cmd/ezp
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 ./cmd/ezp
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe ./cmd/ezp
-	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-arm64.exe ./cmd/ezp
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64 ./cmd/eps
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64 ./cmd/eps
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64 ./cmd/eps
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64 ./cmd/eps
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe ./cmd/eps
+	GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-arm64.exe ./cmd/eps
 	cd dist && sha256sum $(BINARY)-* > checksums.txt || shasum -a 256 $(BINARY)-* > checksums.txt

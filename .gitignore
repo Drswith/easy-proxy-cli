@@ -1,6 +1,6 @@
 # Binaries
-/ezp
-/easy-proxy-cli
+/eps
+/easy-proxy-switch-cli
 /bin/
 /dist/
 
@@ -17,8 +17,8 @@
 !docker/Dockerfile.test
 coverage.out
 coverage.html
-bin/ezp-e2e
-bin/ezp-e2e.exe
+bin/eps-e2e
+bin/eps-e2e.exe
 
 # Go workspace
 go.work

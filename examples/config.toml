@@ -1,5 +1,5 @@
-# Example config — copy to ~/.easy-proxy/config.toml
-#   mkdir -p ~/.easy-proxy && cp examples/config.toml ~/.easy-proxy/config.toml
+# Example config — copy to ~/.easy-proxy-switch/config.toml
+#   mkdir -p ~/.easy-proxy-switch && cp examples/config.toml ~/.easy-proxy-switch/config.toml
 
 version = 1
 default_profile = "default"

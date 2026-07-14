@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drswith/easy-proxy-cli/internal/output"
+	"github.com/drswith/easy-proxy-switch-cli/internal/output"
 )
 
 func TestJSONAndHumanAndScript(t *testing.T) {

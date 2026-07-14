@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-IMAGE_TAG="${EZP_TEST_IMAGE:-easy-proxy-cli-test:local}"
+IMAGE_TAG="${EPS_TEST_IMAGE:-easy-proxy-switch-cli-test:local}"
 TARGET="${1:-all}"
 
 log() { printf '+ %s\n' "$*" >&2; }

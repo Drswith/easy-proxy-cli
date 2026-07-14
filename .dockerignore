@@ -5,4 +5,4 @@ dist/
 .vscode/
 *.test
 coverage.out
-easy-proxy-cli-test*
+easy-proxy-switch-cli-test*

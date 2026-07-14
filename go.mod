@@ -1,4 +1,4 @@
-module github.com/drswith/easy-proxy-cli
+module github.com/drswith/easy-proxy-switch-cli
 
 go 1.26.1
 

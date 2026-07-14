@@ -1,24 +1,24 @@
-# easy-proxy-cli installer for Windows (PowerShell 5+ / pwsh)
+# easy-proxy-switch-cli installer for Windows (PowerShell 5+ / pwsh)
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/drswith/easy-proxy-cli/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/drswith/easy-proxy-switch-cli/main/scripts/install.ps1 | iex
 #   & ([scriptblock]::Create((irm ...))) -NoModifyRc
-#   .\scripts\install.ps1 -Shell powershell -Dir "$env:LOCALAPPDATA\ezp\bin"
+#   .\scripts\install.ps1 -Shell powershell -Dir "$env:LOCALAPPDATA\eps\bin"
 #
 # Env:
-#   EZP_VERSION, EZP_INSTALL_DIR, EZP_REPO, EZP_BIN_URL, EZP_NO_MODIFY_RC
+#   EPS_VERSION, EPS_INSTALL_DIR, EPS_REPO, EPS_BIN_URL, EPS_NO_MODIFY_RC
 
 [CmdletBinding()]
 param(
-    [string]$Dir = $(if ($env:EZP_INSTALL_DIR) { $env:EZP_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "ezp\bin" }),
-    [string]$Version = $(if ($env:EZP_VERSION) { $env:EZP_VERSION } else { "latest" }),
+    [string]$Dir = $(if ($env:EPS_INSTALL_DIR) { $env:EPS_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "eps\bin" }),
+    [string]$Version = $(if ($env:EPS_VERSION) { $env:EPS_VERSION } else { "latest" }),
     [string[]]$Shell = @(),
-    [switch]$NoModifyRc = ($env:EZP_NO_MODIFY_RC -eq "1"),
-    [string]$Repo = $(if ($env:EZP_REPO) { $env:EZP_REPO } else { "drswith/easy-proxy-cli" })
+    [switch]$NoModifyRc = ($env:EPS_NO_MODIFY_RC -eq "1"),
+    [string]$Repo = $(if ($env:EPS_REPO) { $env:EPS_REPO } else { "drswith/easy-proxy-switch-cli" })
 )
 
 $ErrorActionPreference = "Stop"
-$BinName = "ezp.exe"
+$BinName = "eps.exe"
 
 function Write-Log($msg) { Write-Host "+ $msg" }
 function Write-Warn($msg) { Write-Host "! $msg" -ForegroundColor Yellow }
@@ -39,10 +39,10 @@ function Get-LatestTag {
 
 function Install-FromRelease {
     $arch = Get-Arch
-    $asset = "ezp-windows-$arch.exe"
+    $asset = "eps-windows-$arch.exe"
     $url = $null
-    if ($env:EZP_BIN_URL) {
-        $url = $env:EZP_BIN_URL
+    if ($env:EPS_BIN_URL) {
+        $url = $env:EPS_BIN_URL
     } else {
         $tag = $Version
         if ($tag -eq "latest") {
@@ -64,16 +64,16 @@ function Install-WithGo {
     }
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
     $ver = $Version
-    Write-Log "go install github.com/$Repo/cmd/ezp@$ver"
+    Write-Log "go install github.com/$Repo/cmd/eps@$ver"
     $env:GOBIN = $Dir
-    & go install "github.com/$Repo/cmd/ezp@$ver"
+    & go install "github.com/$Repo/cmd/eps@$ver"
     if ($LASTEXITCODE -ne 0) {
         throw "go install failed with exit $LASTEXITCODE"
     }
     $dest = Join-Path $Dir $BinName
     if (-not (Test-Path $dest)) {
-        # go install on Windows names binary from package dir: ezp.exe
-        $alt = Join-Path $Dir "ezp.exe"
+        # go install on Windows names binary from package dir: eps.exe
+        $alt = Join-Path $Dir "eps.exe"
         if (Test-Path $alt) { return $alt }
         throw "go install did not produce $dest"
     }
@@ -100,11 +100,11 @@ function Invoke-Setup([string]$bin) {
         $args += @("--shell", $s)
     }
     # Default Windows shell target is powershell when none specified —
-    # ezp setup auto-detects Windows profiles.
+    # eps setup auto-detects Windows profiles.
     Write-Log "running: $bin $($args -join ' ')"
     & $bin @args
     if ($LASTEXITCODE -ne 0) {
-        throw "ezp setup failed with exit $LASTEXITCODE"
+        throw "eps setup failed with exit $LASTEXITCODE"
     }
 }
 
@@ -129,8 +129,8 @@ Write-Host @"
 
 Done. Next:
   1) open a new PowerShell (or: . `$PROFILE)
-  2) ezp on
-  3) ezp status
+  2) eps on
+  3) eps status
 
-Agent tip: ezp exec -- curl.exe -I https://example.com
+Agent tip: eps exec -- curl.exe -I https://example.com
 "@
