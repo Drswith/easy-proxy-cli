@@ -336,6 +336,8 @@ func ExplainDetection() string {
   3. PowerShell profiles: always on Windows; on Unix only if profile already exists
   4. override with: eps setup --shell zsh --shell bash
   5. skip rc edits with: eps setup --no-modify-rc
+  6. regenerate hook files only: eps setup --update-only
   note: curl|bash does NOT mean your login shell is bash — we ignore the installer interpreter
+  hooks live under ~/.easy-proxy-switch/{sh,fish,powershell,nu}/; rc files get a one-line source
 `, loginShell())
 }
