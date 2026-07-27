@@ -14,7 +14,10 @@ func newSetupCmd() *cobra.Command {
 		Use:   "setup",
 		Short: "Install config + shell hooks (detects $SHELL and existing rc files)",
 		Args:  cobra.NoArgs,
-		Long: `Install default config and inject idempotent shell hooks into rc/profile files.
+		Long: `Install default config and link shell rc/profile files to managed hook scripts.
+
+Managed hooks live under ~/.easy-proxy-switch/ (sh/eps.sh, fish/eps.fish, …).
+Each rc file gets a one-line source block between markers (Kaku-style).
 
 Detection policy (see also: eps setup --explain):
   1. Prefer $SHELL (login shell) — NOT the interpreter running curl|bash
@@ -35,6 +38,7 @@ After setup, open a new terminal (or source your rc), then: eps on`,
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			initCfg, _ := cmd.Flags().GetBool("init-config")
 			createMissing, _ := cmd.Flags().GetBool("create-missing")
+			updateOnly, _ := cmd.Flags().GetBool("update-only")
 			shells, _ := cmd.Flags().GetStringSlice("shell")
 			bin, _ := cmd.Flags().GetString("bin")
 
@@ -50,7 +54,8 @@ After setup, open a new terminal (or source your rc), then: eps on`,
 				CreateMissing: createMissing,
 				DryRun:        dryRun,
 				Uninstall:     uninstall,
-				InitConfig:    initCfg && !uninstall,
+				InitConfig:    initCfg && !uninstall && !updateOnly,
+				UpdateOnly:    updateOnly,
 			}
 
 			if noModify {
@@ -68,10 +73,11 @@ After setup, open a new terminal (or source your rc), then: eps on`,
 
 	cmd.Flags().Bool("explain", false, "print shell detection policy and exit")
 	cmd.Flags().Bool("no-modify-rc", false, "only init config; do not edit shell rc/profile files")
-	cmd.Flags().Bool("uninstall", false, "remove easy-proxy-switch-cli hook blocks from rc files")
+	cmd.Flags().Bool("uninstall", false, "remove eps source lines from rc files and delete managed hook scripts")
 	cmd.Flags().Bool("dry-run", false, "show what would change without writing")
 	cmd.Flags().Bool("init-config", true, "create ~/.easy-proxy-switch/config.toml if missing")
 	cmd.Flags().Bool("create-missing", true, "create rc/profile files when missing")
+	cmd.Flags().Bool("update-only", false, "regenerate hook scripts; update existing rc links only (no new rc files)")
 	cmd.Flags().StringSlice("shell", nil, "only configure these shells (repeatable): zsh,bash,fish,sh,powershell,nu")
 	cmd.Flags().String("bin", "", "eps binary path to embed in hooks (default: this executable)")
 	return cmd
@@ -103,6 +109,9 @@ func printSetupResult(res setup.Result) error {
 	}
 	for _, t := range res.Targets {
 		line := fmt.Sprintf("[%s] %s (%s) %s", t.Action, t.Target.Path, t.Target.Shell, t.Target.Source)
+		if t.Target.HookPath != "" && t.HookAction != "" && t.HookAction != "skipped" {
+			line += fmt.Sprintf(" [%s] %s", t.HookAction, t.Target.HookPath)
+		}
 		if t.Error != "" {
 			line += " — " + t.Error
 		}

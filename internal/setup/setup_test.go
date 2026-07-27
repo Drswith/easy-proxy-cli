@@ -51,16 +51,28 @@ func TestKindFromSHELL(t *testing.T) {
 	}
 }
 
-func TestWriteHookRoundTrip(t *testing.T) {
+func TestWriteSourceLineRoundTrip(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("EPS_HOME", dir)
 	path := filepath.Join(dir, ".zshrc")
 	if err := os.WriteFile(path, []byte("# myrc\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	block := wrapBlock(shell.Zsh, "eps() { :; }\n")
+	block, err := wrapSourceBlock(shell.Zsh)
+	if err != nil {
+		t.Fatal(err)
+	}
 	action, err := writeHook(path, block, false, true)
 	if err != nil || action != "updated" {
 		t.Fatalf("action=%s err=%v", action, err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if !strings.Contains(body, "eps Shell Integration") || strings.Contains(body, "eps()") {
+		t.Fatalf("expected source line only: %q", body)
 	}
 	action, err = writeHook(path, block, false, true)
 	if err != nil || action != "skipped" {
@@ -69,6 +81,70 @@ func TestWriteHookRoundTrip(t *testing.T) {
 	action, err = removeHook(path, false)
 	if err != nil || action != "removed" {
 		t.Fatalf("remove action=%s err=%v", action, err)
+	}
+}
+
+func TestWriteHookFileRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EPS_HOME", dir)
+	path, err := hookFilePath(shell.Zsh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := wrapHookFile("eps() { :; }\n")
+	action, err := writeHookFile(path, content, false)
+	if err != nil || action != "written" {
+		t.Fatalf("action=%s err=%v", action, err)
+	}
+	action, err = writeHookFile(path, content, false)
+	if err != nil || action != "skipped" {
+		t.Fatalf("second write action=%s err=%v", action, err)
+	}
+	action, err = removeHookFile(path, false)
+	if err != nil || action != "removed" {
+		t.Fatalf("remove action=%s err=%v", action, err)
+	}
+}
+
+func TestLegacyInlineBlockMigratesToSourceLine(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("EPS_HOME", dir)
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	zshrc := filepath.Join(dir, ".zshrc")
+	legacy := "# keep\n\n" + MarkerBegin + "\n# easy-proxy-switch-cli shell hook\neps() { :; }\n" + MarkerEnd + "\n"
+	if err := os.WriteFile(zshrc, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Run(Options{
+		Shells:        []string{"zsh"},
+		BinPath:       "/tmp/fake-eps",
+		CreateMissing: true,
+		InitConfig:    false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(zshrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if strings.Contains(body, "eps()") {
+		t.Fatalf("legacy inline hook should be replaced: %q", body)
+	}
+	if !strings.Contains(body, "eps Shell Integration") {
+		t.Fatalf("expected source line: %q", body)
+	}
+	if !strings.Contains(body, "# keep") {
+		t.Fatalf("user content lost: %q", body)
+	}
+	hookPath, err := hookFilePath(shell.Zsh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(hookPath); err != nil {
+		t.Fatalf("hook file missing: %v (targets=%+v)", err, res.Targets)
 	}
 }
 

@@ -18,10 +18,11 @@ const (
 
 // Target is one shell rc/profile file to modify.
 type Target struct {
-	Shell   shell.Kind `json:"shell"`
-	Path    string     `json:"path"`
-	Source  string     `json:"source"` // shell_env | existing_rc | explicit | powershell_path
-	Existed bool       `json:"existed"`
+	Shell    shell.Kind `json:"shell"`
+	Path     string     `json:"path"`
+	HookPath string     `json:"hook_path,omitempty"`
+	Source   string     `json:"source"` // shell_env | existing_rc | explicit | powershell_path
+	Existed  bool       `json:"existed"`
 }
 
 // Options controls setup behavior.
@@ -41,6 +42,9 @@ type Options struct {
 	Uninstall bool
 	// InitConfig writes default ~/.easy-proxy-switch/config.toml if missing.
 	InitConfig bool
+	// UpdateOnly regenerates managed hook files and updates existing rc links
+	// without creating new rc/profile files.
+	UpdateOnly bool
 }
 
 // Result summarizes setup work.
@@ -53,9 +57,10 @@ type Result struct {
 
 // TargetResult is per-file outcome.
 type TargetResult struct {
-	Target Target `json:"target"`
-	Action string `json:"action"` // written|updated|removed|skipped|would_write|would_remove
-	Error  string `json:"error,omitempty"`
+	Target     Target `json:"target"`
+	Action     string `json:"action"`      // rc: written|updated|removed|skipped|would_write|would_update|would_remove
+	HookAction string `json:"hook_action"` // hook file action (same verbs)
+	Error      string `json:"error,omitempty"`
 }
 
 // Run discovers targets and applies hook blocks.
@@ -99,31 +104,77 @@ func Run(opt Options) (Result, error) {
 		}
 	}
 
+	hookHandled := map[string]bool{}
+	hookRemoved := map[string]bool{}
+
 	for _, t := range targets {
 		tr := TargetResult{Target: t}
+
+		hookPath, err := hookFilePath(t.Shell)
+		if err != nil {
+			tr.Action = "skipped"
+			tr.Error = err.Error()
+			res.Targets = append(res.Targets, tr)
+			continue
+		}
+		tr.Target.HookPath = hookPath
+
 		if opt.Uninstall {
 			action, err := removeHook(t.Path, opt.DryRun)
 			tr.Action = action
 			if err != nil {
 				tr.Error = err.Error()
 			}
-		} else {
-			script, err := shell.HookScript(t.Shell, bin)
+			if !hookRemoved[hookPath] {
+				ha, err := removeHookFile(hookPath, opt.DryRun)
+				tr.HookAction = ha
+				if err != nil && tr.Error == "" {
+					tr.Error = err.Error()
+				}
+				hookRemoved[hookPath] = true
+			}
+			res.Targets = append(res.Targets, tr)
+			continue
+		}
+
+		script, err := shell.HookScript(t.Shell, bin)
+		if err != nil {
+			tr.Action = "skipped"
+			tr.Error = err.Error()
+			res.Targets = append(res.Targets, tr)
+			continue
+		}
+
+		if !hookHandled[hookPath] {
+			ha, err := writeHookFile(hookPath, wrapHookFile(script), opt.DryRun)
+			tr.HookAction = ha
 			if err != nil {
-				tr.Action = "skipped"
 				tr.Error = err.Error()
 				res.Targets = append(res.Targets, tr)
+				hookHandled[hookPath] = true
 				continue
 			}
-			block := wrapBlock(t.Shell, script)
-			// Only CreateMissing (or an already-existing file) may create/write.
-			// Target Source must not bypass --create-missing=false.
-			create := opt.CreateMissing || t.Existed
-			action, err := writeHook(t.Path, block, opt.DryRun, create)
-			tr.Action = action
-			if err != nil {
+			hookHandled[hookPath] = true
+		}
+
+		block, err := wrapSourceBlock(t.Shell)
+		if err != nil {
+			tr.Action = "skipped"
+			if tr.Error == "" {
 				tr.Error = err.Error()
 			}
+			res.Targets = append(res.Targets, tr)
+			continue
+		}
+
+		createRC := opt.CreateMissing || t.Existed
+		if opt.UpdateOnly && !t.Existed {
+			createRC = false
+		}
+		action, err := writeHook(t.Path, block, opt.DryRun, createRC)
+		tr.Action = action
+		if err != nil && tr.Error == "" {
+			tr.Error = err.Error()
 		}
 		res.Targets = append(res.Targets, tr)
 	}
@@ -142,19 +193,6 @@ func firstTargetError(targets []TargetResult) error {
 		}
 	}
 	return nil
-}
-
-func wrapBlock(kind shell.Kind, script string) string {
-	script = strings.TrimRight(script, "\n") + "\n"
-	switch kind {
-	case shell.Fish:
-		// fish uses # comments too
-		return MarkerBegin + "\n" + script + MarkerEnd + "\n"
-	case shell.PowerShell:
-		return MarkerBegin + "\n" + script + MarkerEnd + "\n"
-	default:
-		return MarkerBegin + "\n" + script + MarkerEnd + "\n"
-	}
 }
 
 func writeHook(path, block string, dryRun, create bool) (string, error) {

@@ -331,8 +331,12 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(data)
-	if !strings.Contains(body, "easy-proxy-switch-cli") || !strings.Contains(body, "# keep") {
+	if !strings.Contains(body, "eps Shell Integration") || !strings.Contains(body, "# keep") {
 		t.Fatalf("%s", body)
+	}
+	hookPath := filepath.Join(dir, "sh", "eps.sh")
+	if _, err := os.Stat(hookPath); err != nil {
+		t.Fatalf("hook file missing: %v", err)
 	}
 
 	_, _, err = capture(t, "setup", "--uninstall", "--shell", "zsh")
@@ -345,6 +349,9 @@ func TestSetupWritesAndUninstalls(t *testing.T) {
 	}
 	if strings.Contains(string(data), "easy-proxy-switch-cli") {
 		t.Fatalf("hook not removed: %s", data)
+	}
+	if _, err := os.Stat(hookPath); !os.IsNotExist(err) {
+		t.Fatalf("hook file should be removed: %v", err)
 	}
 }
 
