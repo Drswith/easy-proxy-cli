@@ -148,6 +148,19 @@ func TestLegacyInlineBlockMigratesToSourceLine(t *testing.T) {
 	}
 }
 
+func TestFishSourceLineIsFishSafe(t *testing.T) {
+	line, err := sourceLine(shell.Fish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(line, "${") {
+		t.Fatalf("fish source line must not use bash parameter expansion: %q", line)
+	}
+	if !strings.Contains(line, "$EPS_HOME/fish/eps.fish") {
+		t.Fatalf("expected EPS_HOME fish hook path: %q", line)
+	}
+}
+
 func TestIncompleteBlockRefused(t *testing.T) {
 	broken := MarkerBegin + "\neps() { :; }\n# user stuff\n"
 	_, _, err := stripBlock(broken)

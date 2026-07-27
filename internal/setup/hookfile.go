@@ -71,8 +71,8 @@ func sourceLine(kind shell.Kind) (string, error) {
 		return fmt.Sprintf(`[ -f "%s" ] && . "%s" # eps Shell Integration`, hook, hook), nil
 	case shell.Fish:
 		return fmt.Sprintf(
-			`set -q EPS_HOME; or set -gx EPS_HOME "$HOME/.easy-proxy-switch"; test -f "%s"; and source "%s" # eps Shell Integration`,
-			hook, hook,
+			`set -q EPS_HOME; or set -gx EPS_HOME "$HOME/.easy-proxy-switch"; test -f "$EPS_HOME/%s"; and source "$EPS_HOME/%s" # eps Shell Integration`,
+			rel, rel,
 		), nil
 	case shell.PowerShell:
 		return fmt.Sprintf(
